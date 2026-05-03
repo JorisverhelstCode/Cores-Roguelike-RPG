@@ -766,6 +766,9 @@ func build_combat_layer() -> void:
 
 	resource_label = Label.new()
 	resource_label.text = "Resources"
+	resource_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	resource_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	resource_label.custom_minimum_size = Vector2(160, 58)
 	bottom_left.add_child(resource_label)
 
 	var portrait := PanelContainer.new()
@@ -788,6 +791,9 @@ func build_combat_layer() -> void:
 
 	combat_status_label = Label.new()
 	combat_status_label.text = ""
+	combat_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	combat_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	combat_status_label.custom_minimum_size = Vector2(420, 28)
 	bottom_area.add_child(combat_status_label)
 
 	action_toggle_bar = HBoxContainer.new()
@@ -2926,13 +2932,36 @@ func make_wrapped_label(parent: Node) -> Label:
 
 func make_stat(parent: Node, title: String, icon_id: String) -> Label:
 	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(104, 56)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.07, 0.09, 0.075, 0.86)
+	style.border_color = Color(0.75, 0.68, 0.44, 0.55)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 8
+	style.content_margin_top = 6
+	style.content_margin_right = 8
+	style.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", style)
 	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	row.add_theme_constant_override("separation", 6)
 	if icon_id != "":
 		row.add_child(make_icon(icon_id, Vector2(24, 24)))
 	var label := Label.new()
 	label.text = title
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 	panel.add_child(row)
 	parent.add_child(panel)
@@ -2940,10 +2969,16 @@ func make_stat(parent: Node, title: String, icon_id: String) -> Label:
 
 func make_icon_value(icon_id: String, value: String) -> HBoxContainer:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.custom_minimum_size = Vector2(76, 34)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 5)
 	row.add_child(make_icon(icon_id, Vector2(18, 18)))
 	var label := Label.new()
 	label.text = value
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(label)
 	return row
 
