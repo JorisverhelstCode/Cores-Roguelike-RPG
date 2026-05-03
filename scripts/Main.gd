@@ -801,6 +801,9 @@ func build_combat_layer() -> void:
 	bottom_area.add_child(action_toggle_bar)
 
 	var hand_row := HBoxContainer.new()
+	hand_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	hand_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hand_row.custom_minimum_size = Vector2(760, 142)
 	hand_row.add_theme_constant_override("separation", 10)
 	bottom_area.add_child(hand_row)
 
@@ -816,6 +819,8 @@ func build_combat_layer() -> void:
 	hand_row.add_child(deck_button)
 
 	combat_hand_bar = HBoxContainer.new()
+	combat_hand_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	combat_hand_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	combat_hand_bar.add_theme_constant_override("separation", 8)
 	hand_row.add_child(combat_hand_bar)
 
@@ -1807,12 +1812,35 @@ func make_card_log_row(entry: Dictionary) -> HBoxContainer:
 
 func render_initiative() -> void:
 	clear_children(initiative_bar)
+	initiative_bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	for unit_id in combat.initiative:
 		var unit: Dictionary = combat.units[unit_id]
+		var token := PanelContainer.new()
+		token.custom_minimum_size = Vector2(142, 42)
+		var style := StyleBoxFlat.new()
+		var is_active: bool = unit_id == active_unit_id()
+		style.bg_color = Color(0.18, 0.26, 0.22, 0.94) if is_active else Color(0.07, 0.09, 0.075, 0.82)
+		style.border_color = Color(0.96, 0.86, 0.48, 0.95) if is_active else Color(0.75, 0.68, 0.44, 0.45)
+		style.border_width_left = 2 if is_active else 1
+		style.border_width_top = 2 if is_active else 1
+		style.border_width_right = 2 if is_active else 1
+		style.border_width_bottom = 2 if is_active else 1
+		style.corner_radius_top_left = 4
+		style.corner_radius_top_right = 4
+		style.corner_radius_bottom_left = 4
+		style.corner_radius_bottom_right = 4
+		style.content_margin_left = 8
+		style.content_margin_top = 5
+		style.content_margin_right = 8
+		style.content_margin_bottom = 5
+		token.add_theme_stylebox_override("panel", style)
 		var label := Label.new()
 		var active_marker: String = ">" if unit_id == active_unit_id() else " "
 		label.text = "%s %s %s/%s" % [active_marker, unit.name, unit.hp, unit.max_hp]
-		initiative_bar.add_child(label)
+		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		token.add_child(label)
+		initiative_bar.add_child(token)
 
 func render_combat_resources() -> void:
 	var unit: Dictionary = combat.units.player

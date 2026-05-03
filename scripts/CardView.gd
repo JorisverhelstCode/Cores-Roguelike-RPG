@@ -10,7 +10,7 @@ var dragging := false
 var drag_start := Vector2.ZERO
 var home_position := Vector2.ZERO
 
-const CARD_SIZE := Vector2(124, 168)
+const CARD_SIZE := Vector2(136, 184)
 const ICONS := {
 	"move": "res://assets/icons/foot.svg",
 	"energy": "res://assets/icons/energy.svg",
@@ -54,14 +54,15 @@ func setup(card_data: Dictionary) -> void:
 	add_source_badge(face)
 
 func add_header(face: Control) -> void:
-	face.add_child(make_stat_badge("core", str(card_instance.get("cores", 0)), Vector2(8, 8), Vector2(34, 34), 20, false, true))
-	face.add_child(make_stat_badge("energy", str(card_instance.get("energy", 0)), Vector2(7, 36), Vector2(22, 22), 14, true, false))
+	face.add_child(make_stat_badge("core", str(card_instance.get("cores", 0)), Vector2(10, 10), Vector2(38, 38), 21, false, true))
+	face.add_child(make_stat_badge("energy", str(card_instance.get("energy", 0)), Vector2(11, 44), Vector2(24, 24), 14, true, false))
 
 	var title := Label.new()
 	title.text = str(card_instance.get("name", "Card"))
-	title.position = Vector2(46, 10)
-	title.size = Vector2(48, 25)
+	title.position = Vector2(52, 12)
+	title.size = Vector2(52, 30)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 11)
 	title.add_theme_color_override("font_color", Color(0.12, 0.09, 0.06, 1.0))
@@ -69,8 +70,8 @@ func add_header(face: Control) -> void:
 
 func add_art_panel(face: Control) -> void:
 	var art := PanelContainer.new()
-	art.position = Vector2(10, 55)
-	art.size = Vector2(80, 67)
+	art.position = Vector2(14, 62)
+	art.size = Vector2(88, 72)
 	var art_style := StyleBoxFlat.new()
 	art_style.bg_color = Color(0.34, 0.38, 0.34, 0.46)
 	art_style.border_color = Color(0.18, 0.15, 0.10, 0.75)
@@ -88,30 +89,32 @@ func add_art_panel(face: Control) -> void:
 func add_effect_text(face: Control) -> void:
 	var effect := Label.new()
 	effect.text = effect_text()
-	effect.position = Vector2(10, 126)
-	effect.size = Vector2(104, 20)
+	effect.position = Vector2(16, 139)
+	effect.size = Vector2(104, 22)
 	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	effect.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	effect.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	effect.add_theme_font_size_override("font_size", 8)
 	effect.add_theme_color_override("font_color", Color(0.16, 0.12, 0.08, 1.0))
 	face.add_child(effect)
 
 func add_side_blocks(face: Control) -> void:
 	if int(card_instance.get("block", 0)) > 0:
-		face.add_child(make_stat_badge("block", str(card_instance.block), Vector2(92, 66), Vector2(30, 24), 13, false, false, "left"))
+		face.add_child(make_stat_badge("block", str(card_instance.block), Vector2(104, 72), Vector2(32, 26), 14, false, false, "left"))
 	if int(card_instance.get("magic_block", 0)) > 0:
-		face.add_child(make_stat_badge("magic_block", str(card_instance.magic_block), Vector2(92, 94), Vector2(30, 24), 13, false, false, "left"))
+		face.add_child(make_stat_badge("magic_block", str(card_instance.magic_block), Vector2(104, 104), Vector2(32, 26), 14, false, false, "left"))
 
 func add_bottom_stats(face: Control) -> void:
 	if card_instance.has("damage"):
 		var attack_icon := "magic_attack" if str(card_instance.get("damage_type", "normal")) == "magic" else "attack"
-		face.add_child(make_stat_badge(attack_icon, str(card_instance.damage), Vector2(10, 144), Vector2(22, 22), 13, true, false))
-		face.add_child(make_stat_badge("range", str(card_instance.range), Vector2(34, 144), Vector2(22, 22), 12, true, false))
+		face.add_child(make_stat_badge(attack_icon, str(card_instance.damage), Vector2(14, 158), Vector2(24, 24), 14, true, false))
+		face.add_child(make_stat_badge("range", str(card_instance.range), Vector2(42, 158), Vector2(24, 24), 13, true, false))
 	if card_instance.has("move"):
-		face.add_child(make_stat_badge("move", str(card_instance.move), Vector2(92, 144), Vector2(22, 22), 13, true, false))
+		face.add_child(make_stat_badge("move", str(card_instance.move), Vector2(98, 158), Vector2(24, 24), 14, true, false))
 
 func add_source_badge(face: Control) -> void:
 	var source_icon := str(card_instance.get("source_icon", fallback_source_icon()))
-	face.add_child(make_stat_badge(source_icon, "", Vector2(96, 8), Vector2(22, 22), 10, true, false, "", 0.88))
+	face.add_child(make_stat_badge(source_icon, "", Vector2(106, 10), Vector2(24, 24), 10, true, false, "", 0.88))
 
 func effect_text() -> String:
 	var text := str(card_instance.get("text", ""))
