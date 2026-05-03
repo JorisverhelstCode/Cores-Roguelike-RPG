@@ -1,4 +1,4 @@
-# Building Cores
+# Building Aftermath
 
 This project can be exported from Godot as downloadable builds or as a browser-playable web build.
 
@@ -19,8 +19,8 @@ This project can be exported from Godot as downloadable builds or as a browser-p
 2. Select a preset.
 3. Click `Export Project`.
 4. Use the preset's default output path:
-   - Windows: `build/windows/Cores.exe`
-   - Linux: `build/linux/Cores.x86_64`
+   - Windows: `build/windows/Aftermath.exe`
+   - Linux: `build/linux/Aftermath.x86_64`
    - Web: `build/web/index.html`
 
 ## Build from command line
@@ -28,8 +28,8 @@ This project can be exported from Godot as downloadable builds or as a browser-p
 From this folder:
 
 ```powershell
-godot --headless --path . --export-release "Windows" "build/windows/Cores.exe"
-godot --headless --path . --export-release "Linux" "build/linux/Cores.x86_64"
+godot --headless --path . --export-release "Windows" "build/windows/Aftermath.exe"
+godot --headless --path . --export-release "Linux" "build/linux/Aftermath.x86_64"
 godot --headless --path . --export-release "Web" "build/web/index.html"
 ```
 
@@ -39,7 +39,7 @@ If a command says export templates are missing, install them in Godot first.
 
 For Windows, zip the contents of `build/windows` and share the zip. Since the preset embeds the `.pck`, the `.exe` should be the main file people run.
 
-For Linux, zip `build/linux` and tell players to run `Cores.x86_64`. They may need to mark it executable.
+For Linux, zip `build/linux` and tell players to run `Aftermath.x86_64`. They may need to mark it executable.
 
 ## Putting it online
 

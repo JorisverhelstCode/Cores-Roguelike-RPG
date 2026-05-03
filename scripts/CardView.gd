@@ -9,6 +9,7 @@ var draggable := true
 var dragging := false
 var drag_start := Vector2.ZERO
 var home_position := Vector2.ZERO
+var hovered := false
 
 const CARD_SIZE := Vector2(136, 184)
 const ICONS := {
@@ -28,18 +29,8 @@ func setup(card_data: Dictionary) -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_children(self)
 
-	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color(0.89, 0.86, 0.76, 1.0)
-	card_style.border_color = Color(0.20, 0.16, 0.10, 1.0)
-	card_style.border_width_left = 2
-	card_style.border_width_top = 2
-	card_style.border_width_right = 2
-	card_style.border_width_bottom = 2
-	card_style.corner_radius_top_left = 6
-	card_style.corner_radius_top_right = 6
-	card_style.corner_radius_bottom_left = 6
-	card_style.corner_radius_bottom_right = 6
-	add_theme_stylebox_override("panel", card_style)
+	hovered = false
+	apply_hover_style()
 
 	var face := Control.new()
 	face.custom_minimum_size = CARD_SIZE
@@ -72,6 +63,7 @@ func add_art_panel(face: Control) -> void:
 	var art := PanelContainer.new()
 	art.position = Vector2(14, 62)
 	art.size = Vector2(88, 72)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art_style := StyleBoxFlat.new()
 	art_style.bg_color = Color(0.34, 0.38, 0.34, 0.46)
 	art_style.border_color = Color(0.18, 0.15, 0.10, 0.75)
@@ -222,9 +214,31 @@ func _gui_input(event: InputEvent) -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_MOUSE_ENTER:
+		hovered = true
+		apply_hover_style()
 		hover_card.emit(card_instance)
 	if what == NOTIFICATION_MOUSE_EXIT:
+		hovered = false
+		apply_hover_style()
 		unhover_card.emit()
+
+func apply_hover_style() -> void:
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color(0.96, 0.91, 0.72, 1.0) if hovered else Color(0.89, 0.86, 0.76, 1.0)
+	card_style.border_color = Color(0.92, 0.67, 0.18, 1.0) if hovered else Color(0.20, 0.16, 0.10, 1.0)
+	var border_width := 3 if hovered else 2
+	card_style.border_width_left = border_width
+	card_style.border_width_top = border_width
+	card_style.border_width_right = border_width
+	card_style.border_width_bottom = border_width
+	card_style.corner_radius_top_left = 6
+	card_style.corner_radius_top_right = 6
+	card_style.corner_radius_bottom_left = 6
+	card_style.corner_radius_bottom_right = 6
+	card_style.shadow_color = Color(0.95, 0.70, 0.25, 0.35) if hovered else Color(0, 0, 0, 0)
+	card_style.shadow_size = 8 if hovered else 0
+	add_theme_stylebox_override("panel", card_style)
+	modulate = Color(1.06, 1.04, 0.96, 1.0) if hovered else Color.WHITE
 
 func clear_children(node: Node) -> void:
 	for child in node.get_children():

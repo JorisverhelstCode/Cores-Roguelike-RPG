@@ -31,6 +31,8 @@ const LOCATIONS: Array[Dictionary] = [
 
 const ROUTES: Array[Array] = [["hill", "fire"], ["fire", "empty"], ["empty", "dream"], ["dream", "glory"], ["dream", "sand"], ["sand", "sea"]]
 const EQUIPMENT_SLOTS := ["head", "body", "arms", "weapon", "legs", "shoes", "trinkets"]
+const CORE_SLOT_COUNT := 5
+const CORE_ITEM_PREFIX := "Core:"
 const STARTER_EQUIPMENT := {"head": "", "body": "Traveler's Coat", "arms": "Wrapped Hands", "weapon": "Hawk's Spear", "legs": "Padded Trousers", "shoes": "Road Shoes", "trinkets": ""}
 const EQUIPMENT_CARDS := {"head": ["guard"], "body": ["guard"], "arms": ["shove"], "weapon": ["quick_stab", "quick_stab", "dash"], "legs": ["step", "step"], "shoes": ["dash"], "trinkets": ["spark"]}
 const EQUIPMENT_DATA := {
@@ -85,17 +87,22 @@ var save_prompt_popup: PanelContainer
 var save_prompt_action := ""
 var settings_panel: PanelContainer
 var catalogue_panel: PanelContainer
+var catalogue_detail_panel: PanelContainer
+var catalogue_detail_box: VBoxContainer
+var pinned_catalogue_item_id := ""
 var log_popup: PanelContainer
 var log_detail_title: Label
 var log_detail_text: Label
 var log_selected_index := -1
 var inventory_popup: PanelContainer
 var inventory_grid: GridContainer
+var inventory_core_layer: Control
 var inventory_character_layer: Control
 var inventory_stats_box: VBoxContainer
 var deck_grid: GridContainer
 var inventory_scroll: ScrollContainer
 var equipment_slot_controls: Dictionary = {}
+var core_slot_controls: Dictionary = {}
 var held_inventory_item := ""
 var held_inventory_source := ""
 var inventory_drag_preview: PanelContainer
@@ -123,7 +130,6 @@ var base_action_info_label: Label
 var combat_hand_bar: HBoxContainer
 var combat_deck_popup: PanelContainer
 var combat_deck_grid: GridContainer
-var combat_deck_hover_count := 0
 var energy_hole: PanelContainer
 var energy_hole_label: Label
 var discard_popup: Control
@@ -188,7 +194,6 @@ func build_ui() -> void:
 	stats.columns = 2
 	overworld_hud.add_child(stats)
 	hp_label = make_stat(stats, "Health", "health")
-	cores_label = make_stat(stats, "Cores", "core")
 	speed_label = make_stat(stats, "Speed", "speed")
 	gold_label = make_stat(stats, "Gold", "gold")
 
@@ -252,15 +257,10 @@ func build_title_layer() -> void:
 	title_layer.add_child(menu)
 
 	var title := Label.new()
-	title.text = "Cores of Belland"
+	title.text = "Aftermath"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 42)
 	menu.add_child(title)
-
-	var subtitle := Label.new()
-	subtitle.text = "Jiali's run begins in Glory."
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	menu.add_child(subtitle)
 
 	var new_run_button := Button.new()
 	new_run_button.text = "New Run"
@@ -299,20 +299,35 @@ func build_settings_panel() -> void:
 	settings_panel.add_child(stack)
 	add_section_label(stack, "Settings")
 
-	var fullscreen_button := Button.new()
-	fullscreen_button.text = "Fullscreen"
-	fullscreen_button.pressed.connect(func() -> void: set_fullscreen(true))
-	stack.add_child(fullscreen_button)
-
 	var size_label := Label.new()
 	size_label.text = "Window Size"
-	stack.add_child(size_label)
 
-	for screen_size in SCREEN_SIZES:
-		var button := Button.new()
-		button.text = "%s x %s" % [screen_size.x, screen_size.y]
-		button.pressed.connect(func() -> void: set_window_size(screen_size))
-		stack.add_child(button)
+	var size_dropdown := OptionButton.new()
+	for index in range(SCREEN_SIZES.size()):
+		var screen_size: Vector2i = SCREEN_SIZES[index]
+		size_dropdown.add_item("%s x %s" % [screen_size.x, screen_size.y], index)
+	size_dropdown.selected = 2
+	size_dropdown.disabled = true
+	size_dropdown.item_selected.connect(func(index: int) -> void:
+		if index >= 0 and index < SCREEN_SIZES.size():
+			set_window_size(SCREEN_SIZES[index])
+	)
+
+	var fullscreen_toggle := CheckBox.new()
+	fullscreen_toggle.text = "Fullscreen"
+	fullscreen_toggle.button_pressed = true
+	fullscreen_toggle.toggled.connect(func(enabled: bool) -> void:
+		set_fullscreen(enabled)
+		size_dropdown.disabled = enabled
+		size_label.modulate = Color(1, 1, 1, 0.45) if enabled else Color.WHITE
+		if not enabled:
+			set_window_size(SCREEN_SIZES[size_dropdown.selected])
+	)
+	stack.add_child(fullscreen_toggle)
+
+	size_label.modulate = Color(1, 1, 1, 0.45)
+	stack.add_child(size_label)
+	stack.add_child(size_dropdown)
 
 	var close := Button.new()
 	close.text = "Close"
@@ -359,6 +374,8 @@ func build_log_popup() -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(260, 0)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(scroll)
 	log_list = VBoxContainer.new()
@@ -436,10 +453,17 @@ func build_inventory_popup() -> void:
 	inventory_grid.add_theme_constant_override("v_separation", 10)
 	content.add_child(inventory_grid)
 
+	inventory_core_layer = Control.new()
+	inventory_core_layer.position = Vector2(800, 72)
+	inventory_core_layer.size = Vector2(180, 180)
+	content.add_child(inventory_core_layer)
+
 	inventory_scroll = ScrollContainer.new()
 	inventory_scroll.position = Vector2(18, 400)
 	inventory_scroll.custom_minimum_size = Vector2(790, 360)
 	inventory_scroll.size = Vector2(790, 180)
+	inventory_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	inventory_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	content.add_child(inventory_scroll)
 	deck_grid = GridContainer.new()
 	deck_grid.columns = 8
@@ -520,14 +544,24 @@ func build_town_popup() -> void:
 
 	var close := Button.new()
 	close.text = "X"
+	close.name = "TownCloseButton"
 	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	close.offset_left = -56
 	close.offset_top = 8
 	close.offset_right = -8
 	close.offset_bottom = 56
+	close.custom_minimum_size = Vector2(48, 48)
+	close.mouse_filter = Control.MOUSE_FILTER_STOP
+	close.focus_mode = Control.FOCUS_NONE
 	close.add_theme_font_size_override("font_size", 24)
 	close.pressed.connect(leave_town)
+	close.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			leave_town()
+			get_viewport().set_input_as_handled()
+	)
 	content.add_child(close)
+	close.move_to_front()
 
 func build_event_popup() -> void:
 	event_popup = PanelContainer.new()
@@ -631,17 +665,25 @@ func build_in_game_menu() -> void:
 	add_child(in_game_menu_popup)
 
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 10)
+	stack.set_anchors_preset(Control.PRESET_CENTER)
+	stack.offset_left = -150
+	stack.offset_top = -210
+	stack.offset_right = 150
+	stack.offset_bottom = 210
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 16)
 	in_game_menu_popup.add_child(stack)
 	add_section_label(stack, "Menu")
 
 	var main_menu := Button.new()
 	main_menu.text = "Main Menu"
+	style_menu_popup_button(main_menu)
 	main_menu.pressed.connect(func() -> void: show_save_prompt("main_menu"))
 	stack.add_child(main_menu)
 
 	var settings := Button.new()
 	settings.text = "Settings"
+	style_menu_popup_button(settings)
 	settings.pressed.connect(func() -> void:
 		in_game_menu_popup.visible = false
 		show_settings()
@@ -650,6 +692,7 @@ func build_in_game_menu() -> void:
 
 	var catalogue := Button.new()
 	catalogue.text = "Catalogue"
+	style_menu_popup_button(catalogue)
 	catalogue.pressed.connect(func() -> void:
 		in_game_menu_popup.visible = false
 		show_catalogue()
@@ -658,13 +701,20 @@ func build_in_game_menu() -> void:
 
 	var quit := Button.new()
 	quit.text = "Quit Game"
+	style_menu_popup_button(quit)
 	quit.pressed.connect(func() -> void: show_save_prompt("quit"))
 	stack.add_child(quit)
 
 	var close := Button.new()
 	close.text = "Close"
+	style_menu_popup_button(close)
 	close.pressed.connect(func() -> void: in_game_menu_popup.visible = false)
 	stack.add_child(close)
+
+func style_menu_popup_button(button: Button) -> void:
+	button.custom_minimum_size = Vector2(260, 58)
+	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	button.add_theme_font_size_override("font_size", 22)
 
 func build_save_prompt() -> void:
 	save_prompt_popup = PanelContainer.new()
@@ -814,8 +864,7 @@ func build_combat_layer() -> void:
 	deck_button.expand_icon = true
 	deck_button.focus_mode = Control.FOCUS_NONE
 	deck_button.tooltip_text = "Deck"
-	deck_button.mouse_entered.connect(_on_combat_deck_hover_entered)
-	deck_button.mouse_exited.connect(_on_combat_deck_hover_exited)
+	deck_button.pressed.connect(toggle_combat_deck_popup)
 	hand_row.add_child(deck_button)
 
 	combat_hand_bar = HBoxContainer.new()
@@ -885,7 +934,7 @@ func build_combat_layer() -> void:
 	card_preview.visible = false
 	card_preview.custom_minimum_size = Vector2(170, 220)
 	card_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	combat_layer.add_child(card_preview)
+	add_child(card_preview)
 
 	combat_deck_popup = PanelContainer.new()
 	combat_deck_popup.visible = false
@@ -894,8 +943,6 @@ func build_combat_layer() -> void:
 	combat_deck_popup.offset_top = -575
 	combat_deck_popup.offset_right = 1115
 	combat_deck_popup.offset_bottom = -230
-	combat_deck_popup.mouse_entered.connect(_on_combat_deck_hover_entered)
-	combat_deck_popup.mouse_exited.connect(_on_combat_deck_hover_exited)
 	combat_layer.add_child(combat_deck_popup)
 	var deck_scroll := ScrollContainer.new()
 	deck_scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -927,6 +974,8 @@ func build_combat_layer() -> void:
 	combat_layer.add_child(log_panel)
 	combat_log_scroll = ScrollContainer.new()
 	combat_log_scroll.custom_minimum_size = Vector2(240, 190)
+	combat_log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	combat_log_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	log_panel.add_child(combat_log_scroll)
 	combat_log_list = VBoxContainer.new()
 	combat_log_list.custom_minimum_size = Vector2(220, 0)
@@ -1037,6 +1086,8 @@ func build_discard_popup() -> void:
 
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size = Vector2(680, 410)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	stack.add_child(scroll)
 	discard_grid = GridContainer.new()
 	discard_grid.columns = 4
@@ -1062,7 +1113,7 @@ func start_run() -> void:
 		"speed": 6,
 		"gold": 20,
 		"cores": [],
-		"max_cores": 5,
+		"max_cores": CORE_SLOT_COUNT,
 		"equipment": STARTER_EQUIPMENT.duplicate(),
 		"inventory": [],
 		"deck": deck_from_equipment(STARTER_EQUIPMENT)
@@ -1076,7 +1127,7 @@ func start_run() -> void:
 	log_entries = []
 	discover_location("glory")
 	reveal_around_player()
-	add_log("Run begins in Glory, a small village beside old ruins. You have 0 Cores and room for 5.")
+	add_log("Run begins in Glory, a small village beside old ruins.")
 	game_root.visible = true
 	title_layer.visible = false
 	settings_panel.visible = false
@@ -1181,6 +1232,10 @@ func load_run(data: Dictionary) -> void:
 	player = data.player.duplicate(true)
 	if not player.has("inventory"):
 		player.inventory = []
+	if not player.has("cores"):
+		player.cores = []
+	if not player.has("max_cores"):
+		player.max_cores = CORE_SLOT_COUNT
 	if not player.has("deck"):
 		player.deck = deck_from_equipment(player.equipment)
 	player_pos = data.player_pos
@@ -1197,6 +1252,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		var mouse_event: InputEventMouseButton = event
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_RIGHT and mode == "combat":
+			if close_combat_submenus():
+				get_viewport().set_input_as_handled()
+				return
 			cancel_combat_process()
 			get_viewport().set_input_as_handled()
 		return
@@ -1230,6 +1288,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		move_player(delta)
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var click_event: InputEventMouseButton = event
+		if click_event.button_index == MOUSE_BUTTON_RIGHT and click_event.pressed and mode == "combat":
+			if close_combat_submenus():
+				get_viewport().set_input_as_handled()
+				return
+		if click_event.button_index == MOUSE_BUTTON_RIGHT and click_event.pressed and catalogue_panel.visible:
+			clear_pinned_catalogue_detail()
+			get_viewport().set_input_as_handled()
+			return
 	if held_inventory_item == "":
 		return
 	if event is InputEventMouseMotion:
@@ -1244,10 +1312,12 @@ func start_inventory_drag(item_name: String, source: String) -> void:
 	held_inventory_item = item_name
 	held_inventory_source = source
 	clear_children(inventory_drag_preview)
-	var label := Label.new()
-	label.text = item_name
-	label.add_theme_font_size_override("font_size", 14)
-	inventory_drag_preview.add_child(label)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(54, 54)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = load(str(ICONS[inventory_item_icon_id(item_name)]))
+	inventory_drag_preview.add_child(icon)
 	inventory_drag_preview.visible = true
 	inventory_drag_preview.global_position = get_global_mouse_position() + Vector2(12, 12)
 
@@ -1260,25 +1330,42 @@ func finish_inventory_drag(global_position: Vector2) -> void:
 	if item_name == "":
 		return
 	var target_slot := inventory_slot_at(global_position)
+	var did_commit := false
 	if target_slot != "" and item_fits_slot(item_name, target_slot):
+		remove_inventory_drag_source(item_name, source)
 		equip_item_to_slot(item_name, target_slot, source)
+		did_commit = true
 	elif inventory_grid.visible and inventory_grid.get_global_rect().has_point(global_position):
-		add_inventory_item(item_name)
-	else:
-		return_inventory_item_to_source(item_name, source)
-	player.deck = deck_from_equipment(player.equipment)
-	render_inventory()
-	render_deck()
+		if source != "inventory":
+			remove_inventory_drag_source(item_name, source)
+			add_inventory_item(item_name)
+			did_commit = true
+	if did_commit:
+		player.deck = deck_from_equipment(player.equipment)
+		render_inventory()
+		render_deck()
 
 func inventory_slot_at(global_position: Vector2) -> String:
 	for slot in equipment_slot_controls:
 		var control: Control = equipment_slot_controls[slot]
 		if control.get_global_rect().has_point(global_position):
 			return str(slot)
+	for slot in core_slot_controls:
+		var control: Control = core_slot_controls[slot]
+		if control.get_global_rect().has_point(global_position):
+			return str(slot)
 	return ""
 
 func equip_inventory_item(item_name: String) -> void:
-	if mode == "combat" or not EQUIPMENT_DATA.has(item_name):
+	if mode == "combat":
+		return
+	if is_core_item(item_name):
+		if not remove_inventory_item(item_name):
+			return
+		equip_core_to_first_available_slot(core_name_from_item(item_name), "inventory")
+		render_inventory()
+		return
+	if not EQUIPMENT_DATA.has(item_name):
 		return
 	var slot := str(EQUIPMENT_DATA[item_name].slot)
 	if not remove_inventory_item(item_name):
@@ -1289,6 +1376,9 @@ func equip_inventory_item(item_name: String) -> void:
 	render_deck()
 
 func equip_item_to_slot(item_name: String, slot: String, source: String) -> void:
+	if slot.begins_with("core:"):
+		equip_core_item_to_slot(item_name, slot, source)
+		return
 	if not item_fits_slot(item_name, slot):
 		return_inventory_item_to_source(item_name, source)
 		return
@@ -1301,15 +1391,90 @@ func equip_item_to_slot(item_name: String, slot: String, source: String) -> void
 		else:
 			add_inventory_item(replaced)
 
+func remove_inventory_drag_source(item_name: String, source: String) -> void:
+	if source.begins_with("slot:"):
+		var source_slot := source.trim_prefix("slot:")
+		if str(player.equipment.get(source_slot, "")) == item_name:
+			player.equipment[source_slot] = ""
+	elif source.begins_with("core:"):
+		var source_index := int(source.trim_prefix("core:"))
+		if core_at(source_index) == core_name_from_item(item_name):
+			set_core_at(source_index, "")
+	else:
+		remove_inventory_item(item_name)
+
 func return_inventory_item_to_source(item_name: String, source: String) -> void:
 	if source.begins_with("slot:"):
 		var source_slot := source.trim_prefix("slot:")
 		player.equipment[source_slot] = item_name
+	elif source.begins_with("core:"):
+		set_core_at(int(source.trim_prefix("core:")), core_name_from_item(item_name))
 	else:
 		add_inventory_item(item_name)
 
 func item_fits_slot(item_name: String, slot: String) -> bool:
+	if slot.begins_with("core:"):
+		return is_core_item(item_name)
 	return EQUIPMENT_DATA.has(item_name) and str(EQUIPMENT_DATA[item_name].slot) == slot
+
+func equip_core_item_to_slot(item_name: String, slot: String, source: String) -> void:
+	if not is_core_item(item_name):
+		return_inventory_item_to_source(item_name, source)
+		return
+	var target_index := int(slot.trim_prefix("core:"))
+	var replaced := core_at(target_index)
+	set_core_at(target_index, core_name_from_item(item_name))
+	if replaced == "":
+		return
+	if source.begins_with("core:"):
+		set_core_at(int(source.trim_prefix("core:")), replaced)
+	else:
+		add_inventory_item(core_item(replaced))
+
+func equip_core_to_first_available_slot(core_name: String, source: String) -> void:
+	for index in CORE_SLOT_COUNT:
+		if core_at(index) == "":
+			set_core_at(index, core_name)
+			return
+	equip_core_item_to_slot(core_item(core_name), "core:0", source)
+
+func core_item(core_name: String) -> String:
+	if core_name == "":
+		return ""
+	return "%s%s" % [CORE_ITEM_PREFIX, core_name]
+
+func is_core_item(item_name: String) -> bool:
+	return item_name.begins_with(CORE_ITEM_PREFIX)
+
+func core_name_from_item(item_name: String) -> String:
+	return item_name.trim_prefix(CORE_ITEM_PREFIX) if is_core_item(item_name) else item_name
+
+func core_at(index: int) -> String:
+	if not player.has("cores"):
+		player.cores = []
+	var cores: Array = player.cores
+	if index < 0 or index >= cores.size():
+		return ""
+	return str(cores[index])
+
+func set_core_at(index: int, core_name: String) -> void:
+	if not player.has("cores"):
+		player.cores = []
+	var cores: Array = player.cores
+	while cores.size() <= index and cores.size() < CORE_SLOT_COUNT:
+		cores.append("")
+	if index >= 0 and index < CORE_SLOT_COUNT:
+		cores[index] = core_name
+	player.cores = cores
+
+func equipped_core_count() -> int:
+	if not player.has("cores"):
+		player.cores = []
+	var count := 0
+	for core_name in player.cores:
+		if str(core_name) != "":
+			count += 1
+	return count
 
 func add_inventory_item(item_name: String) -> void:
 	if not player.has("inventory"):
@@ -1432,7 +1597,6 @@ func render_all() -> void:
 	var inventory_overlay_active: bool = inventory_popup.visible and mode != "combat"
 	run_label.text = "Run %s - %s" % [run, player.name]
 	hp_label.text = "Health\n%s/%s" % [player.hp, player.max_hp]
-	cores_label.text = "Cores\n%s/%s" % [player.cores.size(), player.max_cores]
 	speed_label.text = "Speed\n%s" % player.speed
 	deck_label.text = "Deck\n%s" % player.deck.size()
 	gold_label.text = "Gold\n%s" % player.gold
@@ -1455,18 +1619,20 @@ func render_inventory() -> void:
 	if player.is_empty():
 		return
 	equipment_slot_controls = {}
+	core_slot_controls = {}
 	clear_children(inventory_stats_box)
 	clear_children(inventory_character_layer)
 	clear_children(inventory_grid)
+	clear_children(inventory_core_layer)
 	render_inventory_stats()
 	render_character_equipment()
+	render_core_slots()
 	render_inventory_items()
 
 func render_inventory_stats() -> void:
 	inventory_stats_box.add_child(make_icon_value("health", "%s/%s" % [player.hp, player.max_hp]))
 	inventory_stats_box.add_child(make_icon_value("speed", str(player.speed)))
 	inventory_stats_box.add_child(make_icon_value("gold", str(player.gold)))
-	inventory_stats_box.add_child(make_icon_value("core", "%s/%s" % [player.cores.size(), player.max_cores]))
 
 func render_character_equipment() -> void:
 	var body_line := ColorRect.new()
@@ -1499,6 +1665,24 @@ func render_character_equipment() -> void:
 		inventory_character_layer.add_child(button)
 		equipment_slot_controls[slot] = button
 
+func render_core_slots() -> void:
+	if mode == "combat":
+		inventory_core_layer.visible = false
+		return
+	inventory_core_layer.visible = true
+	var slot_positions := [
+		Vector2(58, 0),
+		Vector2(0, 58),
+		Vector2(58, 58),
+		Vector2(116, 58),
+		Vector2(58, 116)
+	]
+	for index in CORE_SLOT_COUNT:
+		var button := make_core_slot_button(index)
+		button.position = slot_positions[index]
+		inventory_core_layer.add_child(button)
+		core_slot_controls["core:%s" % index] = button
+
 func render_inventory_items() -> void:
 	if mode == "combat":
 		inventory_grid.visible = false
@@ -1525,24 +1709,65 @@ func make_equipment_slot_button(slot: String) -> Button:
 	button.gui_input.connect(func(event: InputEvent) -> void:
 		if mode == "combat":
 			return
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed and item_name != "":
+			unequip_item_from_slot(slot)
+			get_viewport().set_input_as_handled()
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed and item_name != "":
 			start_inventory_drag(item_name, "slot:%s" % slot)
-			player.equipment[slot] = ""
-			player.deck = deck_from_equipment(player.equipment)
-			render_inventory()
-			render_deck()
 			get_viewport().set_input_as_handled()
 	)
 	return button
 
+func make_core_slot_button(index: int) -> Button:
+	var core_name := core_at(index)
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(58, 58)
+	button.size = Vector2(58, 58)
+	button.text = ""
+	if core_name != "":
+		button.icon = load(str(ICONS["core"]))
+	button.expand_icon = true
+	button.tooltip_text = core_tooltip(core_name)
+	button.mouse_entered.connect(func() -> void: show_inventory_item_info(core_item(core_name), "core"))
+	button.mouse_exited.connect(hide_card_preview)
+	button.gui_input.connect(func(event: InputEvent) -> void:
+		if core_name == "" or mode == "combat":
+			return
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
+			unequip_core_from_slot(index)
+			get_viewport().set_input_as_handled()
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			start_inventory_drag(core_item(core_name), "core:%s" % index)
+			get_viewport().set_input_as_handled()
+	)
+	return button
+
+func unequip_item_from_slot(slot: String) -> void:
+	var item_name := str(player.equipment.get(slot, ""))
+	if item_name == "":
+		return
+	player.equipment[slot] = ""
+	add_inventory_item(item_name)
+	player.deck = deck_from_equipment(player.equipment)
+	render_inventory()
+	render_deck()
+
+func unequip_core_from_slot(index: int) -> void:
+	var core_name := core_at(index)
+	if core_name == "":
+		return
+	set_core_at(index, "")
+	add_inventory_item(core_item(core_name))
+	render_inventory()
+
 func make_inventory_slot_button(item_name: String) -> Button:
 	var button := Button.new()
 	button.custom_minimum_size = Vector2(94, 86)
-	button.text = item_name
+	button.text = ""
 	if item_name != "":
-		button.icon = load(str(ICONS[equipment_icon_id(item_name)]))
+		button.icon = load(str(ICONS[inventory_item_icon_id(item_name)]))
 	button.expand_icon = true
-	button.tooltip_text = equipment_tooltip(item_name, "")
+	button.tooltip_text = inventory_item_tooltip(item_name, "")
 	button.mouse_entered.connect(func() -> void:
 		if item_name != "":
 			show_inventory_item_info(item_name, "")
@@ -1555,10 +1780,8 @@ func make_inventory_slot_button(item_name: String) -> Button:
 			equip_inventory_item(item_name)
 			get_viewport().set_input_as_handled()
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			if remove_inventory_item(item_name):
-				start_inventory_drag(item_name, "inventory")
-				render_inventory()
-				get_viewport().set_input_as_handled()
+			start_inventory_drag(item_name, "inventory")
+			get_viewport().set_input_as_handled()
 	)
 	return button
 
@@ -1567,7 +1790,23 @@ func equipment_icon_id(item_name: String) -> String:
 		return "core"
 	return str(EQUIPMENT_DATA[item_name].icon)
 
+func inventory_item_icon_id(item_name: String) -> String:
+	return "core" if is_core_item(item_name) else equipment_icon_id(item_name)
+
+func inventory_item_display_name(item_name: String) -> String:
+	return "%s Core" % core_name_from_item(item_name) if is_core_item(item_name) else item_name
+
+func inventory_item_tooltip(item_name: String, slot: String) -> String:
+	return core_tooltip(core_name_from_item(item_name)) if is_core_item(item_name) else equipment_tooltip(item_name, slot)
+
+func core_tooltip(core_name: String) -> String:
+	if core_name == "":
+		return "Core slot empty"
+	return "%s Core\nType: Core" % core_name
+
 func equipment_tooltip(item_name: String, slot: String) -> String:
+	if is_core_item(item_name):
+		return core_tooltip(core_name_from_item(item_name))
 	if item_name == "":
 		return "%s slot empty" % slot.capitalize()
 	var item: Dictionary = EQUIPMENT_DATA.get(item_name, {})
@@ -1596,8 +1835,10 @@ func show_inventory_item_info(item_name: String, slot: String) -> void:
 	panel.add_child(label)
 	if item_name != "" and EQUIPMENT_DATA.has(item_name):
 		var cards: Array = EQUIPMENT_DATA[item_name].get("cards", [])
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 6)
+		var row := GridContainer.new()
+		row.columns = 3
+		row.add_theme_constant_override("h_separation", 6)
+		row.add_theme_constant_override("v_separation", 6)
 		for card_id in cards.slice(0, 3):
 			var card: Dictionary = CARDS[str(card_id)]
 			var card_view = preload("res://scripts/CardView.gd").new()
@@ -1608,6 +1849,7 @@ func show_inventory_item_info(item_name: String, slot: String) -> void:
 		panel.add_child(row)
 	card_preview.add_child(panel)
 	card_preview.visible = true
+	card_preview.move_to_front()
 	card_preview.global_position = get_global_mouse_position() + Vector2(18, 18)
 
 func render_deck() -> void:
@@ -1649,20 +1891,30 @@ func render_combat_deck_popup() -> void:
 		card_view.unhover_card.connect(hide_card_preview)
 		combat_deck_grid.add_child(card_view)
 
-func _on_combat_deck_hover_entered() -> void:
-	combat_deck_hover_count += 1
+func toggle_combat_deck_popup() -> void:
+	if combat_deck_popup.visible:
+		combat_deck_popup.visible = false
+		hide_card_preview()
+		return
+	discard_popup.visible = false
 	render_combat_deck_popup()
 	combat_deck_popup.visible = true
 	combat_deck_popup.move_to_front()
 
-func _on_combat_deck_hover_exited() -> void:
-	combat_deck_hover_count = maxi(0, combat_deck_hover_count - 1)
-	call_deferred("hide_combat_deck_popup_if_unhovered")
+func combat_submenu_open() -> bool:
+	return mode == "combat" and ((combat_deck_popup != null and combat_deck_popup.visible) or (discard_popup != null and discard_popup.visible))
 
-func hide_combat_deck_popup_if_unhovered() -> void:
-	if combat_deck_hover_count <= 0:
+func close_combat_submenus() -> bool:
+	var closed_any := false
+	if combat_deck_popup != null and combat_deck_popup.visible:
 		combat_deck_popup.visible = false
+		closed_any = true
+	if discard_popup != null and discard_popup.visible:
+		discard_popup.visible = false
+		closed_any = true
+	if closed_any:
 		hide_card_preview()
+	return closed_any
 
 func render_town() -> void:
 	clear_children(town_panel)
@@ -1746,11 +1998,14 @@ func render_fullscreen_combat() -> void:
 	render_energy_hole()
 	render_block_attack_banner()
 	render_combat_log()
+	var submenu_open := combat_submenu_open()
 	skip_action_button.visible = combat.phase == "targeting"
+	skip_action_button.disabled = submenu_open
 	var resolve_block_button := combat_layer.find_child("ResolveBlockButton", true, false) as Button
 	if resolve_block_button != null:
 		resolve_block_button.visible = combat.phase == "blocking" and str(combat.pending_attack.defender_id) == "player"
-	end_turn_button.disabled = active_unit_id() != "player" or combat.phase == "targeting" or combat.phase == "pay_energy" or combat.phase == "blocking"
+		resolve_block_button.disabled = submenu_open
+	end_turn_button.disabled = active_unit_id() != "player" or combat.phase == "targeting" or combat.phase == "pay_energy" or combat.phase == "blocking" or submenu_open
 
 func render_block_attack_banner() -> void:
 	block_attack_banner.visible = mode == "combat" and combat.phase == "blocking" and not combat.pending_attack.is_empty()
@@ -1796,17 +2051,25 @@ func make_card_log_row(entry: Dictionary) -> HBoxContainer:
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var prefix := Label.new()
 	prefix.text = str(entry.get("prefix", ""))
+	prefix.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	prefix.custom_minimum_size = Vector2(46, 0)
+	prefix.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(prefix)
 	var card: Dictionary = entry.card
 	var card_button := Button.new()
 	card_button.text = str(card.get("name", "Card"))
 	card_button.flat = true
 	card_button.focus_mode = Control.FOCUS_NONE
+	card_button.custom_minimum_size = Vector2(86, 28)
+	card_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	card_button.mouse_entered.connect(func() -> void: show_card_preview(card))
 	card_button.mouse_exited.connect(hide_card_preview)
 	row.add_child(card_button)
 	var suffix := Label.new()
 	suffix.text = str(entry.get("suffix", ""))
+	suffix.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	suffix.custom_minimum_size = Vector2(46, 0)
+	suffix.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(suffix)
 	return row
 
@@ -1861,7 +2124,7 @@ func render_action_toggles() -> void:
 
 func render_base_actions() -> void:
 	base_action_bar.visible = mode == "combat"
-	var can_use_base_actions: bool = active_unit_id() == "player" and combat.phase == "idle"
+	var can_use_base_actions: bool = active_unit_id() == "player" and combat.phase == "idle" and not combat_submenu_open()
 	for child in base_action_bar.get_children():
 		if child is Button:
 			var button: Button = child as Button
@@ -1973,7 +2236,7 @@ func start_combat(enemy_name: String, _difficulty: int) -> void:
 		"target_highlights": [],
 		"hexes": build_hexes(3),
 		"units": {
-			"player": {"name": "Jiali", "team": "player", "q": -2, "r": 0, "hp": player.hp, "max_hp": player.max_hp, "speed": player.speed, "energy": 0, "cores": player.cores.size(), "core_pool": player.cores.size(), "hand_size": 5, "deck": player_deck, "discard": [], "hand": player_hand},
+			"player": {"name": "Jiali", "team": "player", "q": -2, "r": 0, "hp": player.hp, "max_hp": player.max_hp, "speed": player.speed, "energy": 0, "cores": equipped_core_count(), "core_pool": equipped_core_count(), "hand_size": 5, "deck": player_deck, "discard": [], "hand": player_hand},
 			"enemy": {"name": enemy_name, "team": "enemy", "q": 2, "r": 0, "hp": 18 + _difficulty * 6, "max_hp": 18 + _difficulty * 6, "speed": 4 + _difficulty, "energy": 0, "cores": 0, "core_pool": 0, "hand_size": enemy_hand_size, "deck": enemy_deck, "discard": [], "hand": enemy_hand}
 		}
 	}
@@ -1989,8 +2252,8 @@ func start_combat(enemy_name: String, _difficulty: int) -> void:
 
 func win_combat() -> void:
 	player.gold += 20
-	if player.cores.size() < player.max_cores:
-		player.cores.append(current_location.core)
+	if equipped_core_count() < int(player.max_cores):
+		equip_core_to_first_available_slot(str(current_location.core), "reward")
 		add_log("%s Core equipped." % current_location.core)
 	resolved_events[current_location.id] = true
 	finish_run()
@@ -2040,7 +2303,7 @@ func discard_hand_and_draw(unit: Dictionary) -> void:
 	draw_up_to_hand_size(unit)
 
 func end_player_turn() -> void:
-	if mode != "combat" or active_unit_id() != "player":
+	if mode != "combat" or active_unit_id() != "player" or combat_submenu_open():
 		return
 	end_active_turn()
 
@@ -2073,6 +2336,9 @@ func reset_initiative() -> void:
 func _on_card_drag_finished(card_instance: Dictionary, global_position: Vector2) -> void:
 	if mode != "combat":
 		return
+	if combat_submenu_open():
+		float_card_back(str(card_instance.instance_id))
+		return
 	if combat.phase == "targeting" and active_unit_id() != "player":
 		return
 	if combat.phase == "pay_energy":
@@ -2103,7 +2369,7 @@ func reorder_card_in_hand(instance_id: String, global_x: float) -> void:
 	combat.units.player = unit
 
 func begin_base_move_action() -> void:
-	if mode != "combat" or combat.is_empty() or active_unit_id() != "player" or combat.phase != "idle":
+	if mode != "combat" or combat.is_empty() or active_unit_id() != "player" or combat.phase != "idle" or combat_submenu_open():
 		return
 	var action_card: Dictionary = {
 		"name": "Move",
@@ -2130,6 +2396,9 @@ func begin_base_move_action() -> void:
 	start_selected_card_actions()
 
 func begin_card_play(card: Dictionary) -> void:
+	if combat_submenu_open():
+		float_card_back(str(card.instance_id))
+		return
 	var unit: Dictionary = combat.units.player
 	if int(card.cores) > int(unit.core_pool):
 		combat_status_label.text = "Not enough Core."
@@ -2210,12 +2479,12 @@ func get_remaining_action(action_kind: String) -> Dictionary:
 	return {}
 
 func skip_pending_action() -> void:
-	if combat.phase != "targeting":
+	if combat.phase != "targeting" or combat_submenu_open():
 		return
 	complete_selected_action(false)
 
 func _on_combat_hex_clicked(hex: Vector2i) -> void:
-	if mode != "combat" or combat.phase != "targeting" or active_unit_id() != "player":
+	if mode != "combat" or combat.phase != "targeting" or active_unit_id() != "player" or combat_submenu_open():
 		return
 	if combat.selected_action == "move" and array_to_hexes(combat.move_highlights).has(hex):
 		var unit: Dictionary = combat.units.player
@@ -2581,6 +2850,7 @@ func show_card_preview(card_instance: Dictionary) -> void:
 	card_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card_preview.add_child(card_view)
 	card_preview.visible = true
+	card_preview.move_to_front()
 	card_preview.global_position = get_global_mouse_position() + Vector2(-70, -250)
 
 func hide_card_preview() -> void:
@@ -2601,8 +2871,11 @@ func show_combat_map_overlay() -> void:
 	combat_map_overlay.visible = true
 
 func show_discard_popup() -> void:
+	combat_deck_popup.visible = false
+	hide_card_preview()
 	render_discard_popup()
 	discard_popup.visible = true
+	discard_popup.move_to_front()
 
 func render_discard_popup() -> void:
 	clear_children(discard_grid)
@@ -2808,6 +3081,7 @@ func position_inventory_popup() -> void:
 		inventory_character_layer.position = Vector2(120, 16)
 		inventory_character_layer.size = Vector2(340, 310)
 		inventory_grid.visible = false
+		inventory_core_layer.visible = false
 		inventory_scroll.visible = false
 	else:
 		inventory_popup.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2819,8 +3093,10 @@ func position_inventory_popup() -> void:
 		inventory_character_layer.position = Vector2(140, 42)
 		inventory_character_layer.size = Vector2(430, 470)
 		inventory_grid.position = Vector2(610, 74)
-		inventory_grid.columns = 5
+		inventory_grid.columns = 4
 		inventory_grid.visible = true
+		inventory_core_layer.position = Vector2(1035, 86)
+		inventory_core_layer.visible = true
 		deck_grid.columns = 10
 		inventory_scroll.position = Vector2(18, 545)
 		inventory_scroll.size = Vector2(1180, 145)
@@ -2837,30 +3113,119 @@ func show_map_overlay() -> void:
 
 func render_catalogue() -> void:
 	clear_children(catalogue_panel)
-	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 10)
-	catalogue_panel.add_child(stack)
-	add_section_label(stack, "Catalogue")
+	pinned_catalogue_item_id = ""
+	var content := Control.new()
+	content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content.mouse_filter = Control.MOUSE_FILTER_PASS
+	catalogue_panel.add_child(content)
+
+	var grid := GridContainer.new()
+	grid.columns = 6
+	grid.position = Vector2(60, 70)
+	grid.size = Vector2(620, 520)
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	content.add_child(grid)
 
 	for item_id in CATALOGUE_ITEMS:
 		var item: Dictionary = CATALOGUE_ITEMS[item_id]
-		var panel := PanelContainer.new()
-		var label := Label.new()
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		if bool(item.found):
-			label.text = catalogue_item_text(item)
-		else:
-			label.text = "Unknown Item\nNo information available."
-		panel.add_child(label)
-		stack.add_child(panel)
+		grid.add_child(make_catalogue_item_button(str(item_id), item))
+
+	catalogue_detail_panel = PanelContainer.new()
+	catalogue_detail_panel.visible = false
+	catalogue_detail_panel.position = Vector2(720, 80)
+	catalogue_detail_panel.size = Vector2(520, 560)
+	content.add_child(catalogue_detail_panel)
+	catalogue_detail_box = VBoxContainer.new()
+	catalogue_detail_box.add_theme_constant_override("separation", 10)
+	catalogue_detail_panel.add_child(catalogue_detail_box)
 
 	var close := Button.new()
-	close.text = "Close"
+	close.text = "X"
+	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	close.offset_left = -56
+	close.offset_top = 8
+	close.offset_right = -8
+	close.offset_bottom = 56
+	close.add_theme_font_size_override("font_size", 24)
 	close.pressed.connect(func() -> void: catalogue_panel.visible = false)
-	stack.add_child(close)
+	content.add_child(close)
+
+func make_catalogue_item_button(item_id: String, item: Dictionary) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(96, 96)
+	button.text = "" if bool(item.found) else "?"
+	button.expand_icon = true
+	if bool(item.found):
+		button.icon = load(str(ICONS[catalogue_item_icon(item)]))
+	button.mouse_entered.connect(func() -> void: show_catalogue_detail(item_id, false))
+	button.mouse_exited.connect(func() -> void:
+		if pinned_catalogue_item_id == "":
+			catalogue_detail_panel.visible = false
+	)
+	button.pressed.connect(func() -> void: show_catalogue_detail(item_id, true))
+	return button
+
+func catalogue_item_icon(item: Dictionary) -> String:
+	var item_name := str(item.get("name", ""))
+	if EQUIPMENT_DATA.has(item_name):
+		return equipment_icon_id(item_name)
+	return "core"
+
+func show_catalogue_detail(item_id: String, pin_detail: bool) -> void:
+	if not CATALOGUE_ITEMS.has(item_id):
+		return
+	if pin_detail:
+		pinned_catalogue_item_id = item_id
+	elif pinned_catalogue_item_id != "" and pinned_catalogue_item_id != item_id:
+		return
+	var item: Dictionary = CATALOGUE_ITEMS[item_id]
+	clear_children(catalogue_detail_box)
+	if not bool(item.found):
+		var unknown := Label.new()
+		unknown.text = "Unknown item"
+		unknown.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		catalogue_detail_box.add_child(unknown)
+		catalogue_detail_panel.visible = true
+		return
+	var title := Label.new()
+	title.text = str(item.name)
+	title.add_theme_font_size_override("font_size", 26)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	catalogue_detail_box.add_child(title)
+	var image_space := PanelContainer.new()
+	image_space.custom_minimum_size = Vector2(480, 180)
+	var icon := make_icon(catalogue_item_icon(item), Vector2(96, 96))
+	image_space.add_child(icon)
+	catalogue_detail_box.add_child(image_space)
+	var label := Label.new()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.text = catalogue_item_text(item)
+	catalogue_detail_box.add_child(label)
+	if item.has("cards"):
+		var row := GridContainer.new()
+		row.columns = 3
+		row.add_theme_constant_override("h_separation", 8)
+		row.add_theme_constant_override("v_separation", 8)
+		for card_id in item.cards:
+			var card: Dictionary = CARDS[str(card_id)]
+			var card_view = preload("res://scripts/CardView.gd").new()
+			card_view.setup(card)
+			card_view.draggable = false
+			card_view.scale = Vector2(0.65, 0.65)
+			card_view.hover_card.connect(show_card_preview)
+			card_view.unhover_card.connect(hide_card_preview)
+			row.add_child(card_view)
+		catalogue_detail_box.add_child(row)
+	catalogue_detail_panel.visible = true
+
+func clear_pinned_catalogue_detail() -> void:
+	pinned_catalogue_item_id = ""
+	if catalogue_detail_panel != null:
+		catalogue_detail_panel.visible = false
 
 func catalogue_item_text(item: Dictionary) -> String:
-	var lines: Array[String] = ["Name: %s" % item.name, "Type: %s" % item.type, "Cards:"]
+	var lines: Array[String] = ["Type: %s" % item.type, "Cards:"]
 	for card_id in item.cards:
 		var card: Dictionary = CARDS[card_id]
 		lines.append("- %s" % card_rules_text(card))

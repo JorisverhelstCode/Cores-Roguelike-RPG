@@ -1,6 +1,6 @@
-# Cores
+# Aftermath
 
-Cores is a work-in-progress roguelike RPG prototype built in Godot.
+Aftermath is a work-in-progress roguelike RPG prototype built in Godot.
 
 The game starts on an overworld map with fog of war. The player begins in Glory, explores locations, enters town and event popups, and fights tactical card-based battles on a hex grid.
 
