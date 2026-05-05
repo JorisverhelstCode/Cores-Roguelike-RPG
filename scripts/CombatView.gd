@@ -1,6 +1,7 @@
 extends Control
 
 signal hex_clicked(hex: Vector2i)
+signal unit_clicked(unit_id: String)
 
 var units: Dictionary = {}
 var hexes: Array[Vector2i] = []
@@ -20,6 +21,10 @@ func _ready() -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		var local_position: Vector2 = event.position
+		var clicked_unit := unit_at_point(local_position)
+		if clicked_unit != "":
+			unit_clicked.emit(clicked_unit)
+			return
 		var clicked_hex: Vector2i = screen_to_hex(local_position)
 		if hexes.has(clicked_hex):
 			hex_clicked.emit(clicked_hex)
@@ -61,6 +66,14 @@ func hex_to_screen(hex: Vector2i) -> Vector2:
 		radius * sqrt(3.0) * (float(hex.x) + float(hex.y) / 2.0),
 		radius * 1.5 * float(hex.y)
 	)
+
+func unit_at_point(point: Vector2) -> String:
+	for unit_id in units:
+		var unit: Dictionary = units[unit_id]
+		var center: Vector2 = hex_to_screen(Vector2i(int(unit.q), int(unit.r)))
+		if point.distance_to(center) <= 24.0:
+			return str(unit_id)
+	return ""
 
 func screen_to_hex(point: Vector2) -> Vector2i:
 	var radius := 28.0

@@ -4,6 +4,9 @@ signal location_clicked(location_id: String)
 signal map_clicked(map_position: Vector2)
 
 const VIEW_RADIUS := 155.0
+const MIN_ZOOM := 1.0
+const MAX_ZOOM := 3.0
+const ZOOM_STEP := 1.18
 
 var map_texture: Texture2D
 var locations: Array[Dictionary] = []
@@ -12,14 +15,24 @@ var player_pos := Vector2.ZERO
 var discovered: Dictionary = {}
 var explored: Array[Dictionary] = []
 var current_location_id := ""
+var zoom_level := 1.0
+var pan_offset := Vector2.ZERO
+var is_panning := false
+var last_pan_position := Vector2.ZERO
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_RESIZED:
+		clamp_pan_offset()
+		queue_redraw()
 
 func configure(texture: Texture2D, location_data: Array[Dictionary], routes: Array[Array]) -> void:
 	map_texture = texture
 	locations = location_data
 	route_links = routes
+	clamp_pan_offset()
 	queue_redraw()
 
 func set_world_state(pos: Vector2, known: Dictionary, explored_spots: Array[Dictionary], active_location_id: String) -> void:
@@ -30,8 +43,24 @@ func set_world_state(pos: Vector2, known: Dictionary, explored_spots: Array[Dict
 	queue_redraw()
 
 func _gui_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		var map_point := screen_to_map(event.position)
+	if event is InputEventMouseButton:
+		var button_event: InputEventMouseButton = event
+		if button_event.pressed and button_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			zoom_at(button_event.position, zoom_level * ZOOM_STEP)
+			accept_event()
+			return
+		if button_event.pressed and button_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			zoom_at(button_event.position, zoom_level / ZOOM_STEP)
+			accept_event()
+			return
+		if button_event.button_index == MOUSE_BUTTON_MIDDLE or button_event.button_index == MOUSE_BUTTON_RIGHT:
+			is_panning = button_event.pressed and zoom_level > MIN_ZOOM
+			last_pan_position = button_event.position
+			accept_event()
+			return
+		if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
+			return
+		var map_point := screen_to_map(button_event.position)
 		for location in locations:
 			if not discovered.has(location.id):
 				continue
@@ -40,6 +69,13 @@ func _gui_input(event: InputEvent) -> void:
 				location_clicked.emit(location.id)
 				return
 		map_clicked.emit(map_point)
+	if event is InputEventMouseMotion and is_panning:
+		var motion_event: InputEventMouseMotion = event
+		pan_offset += motion_event.position - last_pan_position
+		last_pan_position = motion_event.position
+		clamp_pan_offset()
+		queue_redraw()
+		accept_event()
 
 func _draw() -> void:
 	if map_texture == null:
@@ -111,6 +147,11 @@ func draw_player(rect: Rect2) -> void:
 	draw_polyline(outline, Color(0.97, 0.95, 0.85), 3.0)
 
 func get_map_rect() -> Rect2:
+	var base_rect := get_base_map_rect()
+	var draw_size := base_rect.size * zoom_level
+	return Rect2(base_rect.get_center() - draw_size * 0.5 + pan_offset, draw_size)
+
+func get_base_map_rect() -> Rect2:
 	var texture_size := map_texture.get_size()
 	var scale: float = minf(size.x / texture_size.x, size.y / texture_size.y)
 	var draw_size := texture_size * scale
@@ -125,6 +166,46 @@ func screen_to_map(screen_pos: Vector2) -> Vector2:
 		(screen_pos.x - rect.position.x) / rect.size.x,
 		(screen_pos.y - rect.position.y) / rect.size.y
 	)
+
+func zoom_in() -> void:
+	zoom_at(size * 0.5, zoom_level * ZOOM_STEP)
+
+func zoom_out() -> void:
+	zoom_at(size * 0.5, zoom_level / ZOOM_STEP)
+
+func reset_zoom() -> void:
+	zoom_level = MIN_ZOOM
+	pan_offset = Vector2.ZERO
+	queue_redraw()
+
+func zoom_at(screen_pos: Vector2, next_zoom: float) -> void:
+	if map_texture == null:
+		return
+	var previous_rect := get_map_rect()
+	var map_anchor := Vector2(
+		(screen_pos.x - previous_rect.position.x) / previous_rect.size.x,
+		(screen_pos.y - previous_rect.position.y) / previous_rect.size.y
+	)
+	zoom_level = clampf(next_zoom, MIN_ZOOM, MAX_ZOOM)
+	if is_equal_approx(zoom_level, MIN_ZOOM):
+		pan_offset = Vector2.ZERO
+	else:
+		var base_rect := get_base_map_rect()
+		var draw_size := base_rect.size * zoom_level
+		var desired_position := screen_pos - Vector2(map_anchor.x * draw_size.x, map_anchor.y * draw_size.y)
+		pan_offset = desired_position - (base_rect.get_center() - draw_size * 0.5)
+		clamp_pan_offset()
+	queue_redraw()
+
+func clamp_pan_offset() -> void:
+	if map_texture == null or zoom_level <= MIN_ZOOM:
+		pan_offset = Vector2.ZERO
+		return
+	var base_rect := get_base_map_rect()
+	var draw_size := base_rect.size * zoom_level
+	var extra := (draw_size - base_rect.size) * 0.5
+	pan_offset.x = clampf(pan_offset.x, -extra.x, extra.x)
+	pan_offset.y = clampf(pan_offset.y, -extra.y, extra.y)
 
 func get_location(location_id: String) -> Dictionary:
 	for location in locations:
