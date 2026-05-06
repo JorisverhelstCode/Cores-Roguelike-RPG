@@ -5,8 +5,11 @@ signal map_clicked(map_position: Vector2)
 
 const VIEW_RADIUS := 155.0
 const MIN_ZOOM := 1.0
-const MAX_ZOOM := 3.0
+const MAX_ZOOM := 5.0
 const ZOOM_STEP := 1.18
+const START_ZOOM := 3.2
+const LOCATION_CLICK_RADIUS := 12.0
+const LEFT_DRAG_THRESHOLD := 6.0
 
 var map_texture: Texture2D
 var locations: Array[Dictionary] = []
@@ -19,6 +22,9 @@ var zoom_level := 1.0
 var pan_offset := Vector2.ZERO
 var is_panning := false
 var last_pan_position := Vector2.ZERO
+var pan_button := MOUSE_BUTTON_NONE
+var pan_start_position := Vector2.ZERO
+var left_dragged := false
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -53,29 +59,47 @@ func _gui_input(event: InputEvent) -> void:
 			zoom_at(button_event.position, zoom_level / ZOOM_STEP)
 			accept_event()
 			return
+		if button_event.button_index == MOUSE_BUTTON_LEFT:
+			if button_event.pressed:
+				is_panning = true
+				pan_button = MOUSE_BUTTON_LEFT
+				pan_start_position = button_event.position
+				last_pan_position = button_event.position
+				left_dragged = false
+			else:
+				var was_click := is_panning and pan_button == MOUSE_BUTTON_LEFT and not left_dragged
+				is_panning = false
+				pan_button = MOUSE_BUTTON_NONE
+				if was_click:
+					handle_left_click(button_event.position)
+			accept_event()
+			return
 		if button_event.button_index == MOUSE_BUTTON_MIDDLE or button_event.button_index == MOUSE_BUTTON_RIGHT:
-			is_panning = button_event.pressed and zoom_level > MIN_ZOOM
+			is_panning = button_event.pressed
+			pan_button = button_event.button_index if button_event.pressed else MOUSE_BUTTON_NONE
 			last_pan_position = button_event.position
 			accept_event()
 			return
-		if button_event.button_index != MOUSE_BUTTON_LEFT or not button_event.pressed:
-			return
-		var map_point := screen_to_map(button_event.position)
-		for location in locations:
-			if not discovered.has(location.id):
-				continue
-			var location_point: Vector2 = Vector2(float(location.x), float(location.y))
-			if map_point.distance_to(location_point) < 0.026:
-				location_clicked.emit(location.id)
-				return
-		map_clicked.emit(map_point)
+		accept_event()
 	if event is InputEventMouseMotion and is_panning:
 		var motion_event: InputEventMouseMotion = event
+		if pan_button == MOUSE_BUTTON_LEFT and motion_event.position.distance_to(pan_start_position) > LEFT_DRAG_THRESHOLD:
+			left_dragged = true
 		pan_offset += motion_event.position - last_pan_position
 		last_pan_position = motion_event.position
 		clamp_pan_offset()
 		queue_redraw()
 		accept_event()
+
+func handle_left_click(screen_position: Vector2) -> void:
+	for location in locations:
+		if not discovered.has(location.id):
+			continue
+		var rect := get_map_rect()
+		var location_screen: Vector2 = map_to_screen(Vector2(float(location.x), float(location.y)), rect)
+		if screen_position.distance_to(location_screen) <= LOCATION_CLICK_RADIUS:
+			location_clicked.emit(location.id)
+			return
 
 func _draw() -> void:
 	if map_texture == null:
@@ -129,9 +153,13 @@ func draw_locations(rect: Rect2) -> void:
 			continue
 		var pos: Vector2 = map_to_screen(Vector2(float(location.x), float(location.y)), rect)
 		var active: bool = str(location.id) == current_location_id
-		draw_circle(pos, 18.0 if active else 14.0, Color(0.84, 0.68, 0.25, 0.92))
-		draw_arc(pos, 21.0 if active else 17.0, 0.0, TAU, 36, Color(0.97, 0.95, 0.85, 0.95), 3.0)
-		draw_string(ThemeDB.fallback_font, pos + Vector2(-28, -25), location.name, HORIZONTAL_ALIGNMENT_LEFT, 90, 18, Color(0.97, 0.95, 0.85))
+		var zoom_t := clampf((zoom_level - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM), 0.0, 1.0)
+		var radius := lerpf(5.0, 16.0 if active else 13.0, zoom_t)
+		draw_circle(pos, radius, Color(0.84, 0.68, 0.25, 0.88))
+		draw_arc(pos, radius + 3.0, 0.0, TAU, 36, Color(0.97, 0.95, 0.85, 0.92), maxf(1.0, radius * 0.16))
+		if zoom_level >= 1.65:
+			var font_size := int(round(lerpf(11.0, 19.0, zoom_t)))
+			draw_string(ThemeDB.fallback_font, pos + Vector2(-26, -radius - 7), location.name, HORIZONTAL_ALIGNMENT_LEFT, 90, font_size, Color(0.97, 0.95, 0.85))
 
 func draw_player(rect: Rect2) -> void:
 	var pos := map_to_screen(player_pos, rect)
@@ -176,6 +204,18 @@ func zoom_out() -> void:
 func reset_zoom() -> void:
 	zoom_level = MIN_ZOOM
 	pan_offset = Vector2.ZERO
+	queue_redraw()
+
+func focus_on_map_position(map_pos: Vector2, next_zoom: float = START_ZOOM) -> void:
+	if map_texture == null:
+		return
+	zoom_level = clampf(next_zoom, MIN_ZOOM, MAX_ZOOM)
+	var base_rect := get_base_map_rect()
+	var draw_size := base_rect.size * zoom_level
+	var screen_center := size * 0.5
+	var desired_position := screen_center - Vector2(map_pos.x * draw_size.x, map_pos.y * draw_size.y)
+	pan_offset = desired_position - (base_rect.get_center() - draw_size * 0.5)
+	clamp_pan_offset()
 	queue_redraw()
 
 func zoom_at(screen_pos: Vector2, next_zoom: float) -> void:

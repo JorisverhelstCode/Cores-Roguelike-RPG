@@ -1,0 +1,8 @@
+sea=#0F4D89
+river=#20A6E0
+plains=#8EB952
+desert=#DDBE70
+forest=#30682A
+rainforest=#144826
+mountain=#6C5F50
+tundra=#DCEDF2

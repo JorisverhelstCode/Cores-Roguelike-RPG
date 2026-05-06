@@ -1,10 +1,21 @@
 extends Control
 
 const MAP_PATH := "res://assets/maps/Belland.png"
+const TERRAIN_MASK_PATH := "res://assets/maps/Belland_terrain_mask.png"
 const KEYBOARD_MOVE_SPEED := 0.075
 const CLICK_MOVE_SPEED := 0.065
 const OVERWORLD_SQUARE_SIZE := 0.025
 const DAYS_PER_YEAR := 365
+const TOWN_ENTRY_RADIUS := 0.018
+const TRAVEL_GRID_SIZE := Vector2i(96, 96)
+const TERRAIN_SEA := Color8(15, 77, 137)
+const TERRAIN_RIVER := Color8(32, 166, 224)
+const TERRAIN_PLAINS := Color8(142, 185, 82)
+const TERRAIN_DESERT := Color8(221, 190, 112)
+const TERRAIN_FOREST := Color8(48, 104, 42)
+const TERRAIN_RAINFOREST := Color8(20, 72, 38)
+const TERRAIN_MOUNTAIN := Color8(108, 95, 80)
+const TERRAIN_TUNDRA := Color8(220, 237, 242)
 const FOG_RADIUS := 170.0
 const SCREEN_SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]
 const ICONS := {
@@ -23,13 +34,13 @@ const ICONS := {
 }
 
 const LOCATIONS: Array[Dictionary] = [
-	{"id": "hill", "name": "Hill", "type": "town", "x": 0.375, "y": 0.376, "danger": 1, "core": "Stone", "lore": "A stubborn hill-fort guarding the road beneath the northern teeth.", "town": ["Inn", "Market", "Trainer", "Notice Board"]},
-	{"id": "fire", "name": "Fire", "type": "town", "x": 0.414, "y": 0.385, "danger": 2, "core": "Ember", "lore": "Forgefires burn through the fog here, drawing raiders and relic hunters.", "town": ["Forge", "Corewright", "Tavern", "Gate Watch"]},
-	{"id": "empty", "name": "Empty", "type": "event", "x": 0.378, "y": 0.516, "danger": 2, "core": "Hollow", "lore": "A quiet keep where abandoned wells answer with unfamiliar voices."},
-	{"id": "dream", "name": "Dream", "type": "event", "x": 0.478, "y": 0.622, "danger": 3, "core": "Moon", "lore": "Mist curls around broken causeways and sleep has sharp little teeth."},
-	{"id": "glory", "name": "Glory", "type": "town", "x": 0.355, "y": 0.751, "danger": 3, "core": "Crown", "lore": "A small village built beside old palace ruins, safe enough to begin a desperate run.", "town": ["Village Inn", "Relic Shop", "Militia Yard", "Old Ruins"]},
-	{"id": "sand", "name": "Sand", "type": "event", "x": 0.838, "y": 0.613, "danger": 4, "core": "Glass", "lore": "The eastern waste scours armor clean and leaves maps full of lies."},
-	{"id": "sea", "name": "Sea", "type": "town", "x": 0.785, "y": 0.846, "danger": 4, "core": "Tide", "lore": "Salt gates, drowned ruins, and ships that return with no crew.", "town": ["Harbor", "Fishmonger", "Ship Shrine", "Smuggler Den"]}
+	{"id": "hill", "name": "Hill", "type": "town", "x": 0.599, "y": 0.628, "danger": 1, "core": "Stone", "lore": "A stubborn hill-fort guarding the road beneath the northern teeth.", "town": ["Inn", "Market", "Trainer", "Notice Board"]},
+	{"id": "fire", "name": "Fire", "type": "town", "x": 0.625, "y": 0.665, "danger": 2, "core": "Ember", "lore": "Forgefires burn through the fog here, drawing raiders and relic hunters.", "town": ["Forge", "Corewright", "Tavern", "Gate Watch"]},
+	{"id": "empty", "name": "Empty", "type": "event", "x": 0.541, "y": 0.688, "danger": 2, "core": "Hollow", "lore": "A quiet keep where abandoned wells answer with unfamiliar voices."},
+	{"id": "dream", "name": "Dream", "type": "event", "x": 0.595, "y": 0.690, "danger": 3, "core": "Moon", "lore": "Mist curls around broken causeways and sleep has sharp little teeth."},
+	{"id": "glory", "name": "Glory", "type": "town", "x": 0.575, "y": 0.726, "danger": 3, "core": "Crown", "lore": "A small village built beside old palace ruins, safe enough to begin a desperate run.", "town": ["Village Inn", "Relic Shop", "Militia Yard", "Old Ruins"]},
+	{"id": "sand", "name": "Sand", "type": "event", "x": 0.931, "y": 0.632, "danger": 4, "core": "Glass", "lore": "The eastern waste scours armor clean and leaves maps full of lies."},
+	{"id": "sea", "name": "Sea", "type": "town", "x": 0.794, "y": 0.846, "danger": 4, "core": "Tide", "lore": "Salt gates, drowned ruins, and ships that return with no crew.", "town": ["Harbor", "Fishmonger", "Ship Shrine", "Smuggler Den"]}
 ]
 
 const ROUTES: Array[Array] = [["hill", "fire"], ["fire", "empty"], ["empty", "dream"], ["dream", "glory"], ["dream", "sand"], ["sand", "sea"]]
@@ -128,12 +139,19 @@ var title_layer: Control
 var title_continue_button: Button
 var top_right_controls: HBoxContainer
 var overworld_zoom_controls: HBoxContainer
+var enter_town_button: Button
+var terrain_image: Image
 var map_overlay: Control
 var map_overlay_view
 var in_game_menu_button: Button
 var in_game_menu_popup: PanelContainer
 var save_prompt_popup: PanelContainer
 var save_prompt_action := ""
+var travel_prompt_popup: PanelContainer
+var travel_prompt_label: Label
+var pending_travel_location_id := ""
+var travel_message_popup: PanelContainer
+var travel_message_label: Label
 var settings_panel: PanelContainer
 var catalogue_panel: PanelContainer
 var catalogue_detail_panel: PanelContainer
@@ -213,6 +231,9 @@ func _ready() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	build_ui()
 	var texture := load(MAP_PATH) as Texture2D
+	var terrain_texture := load(TERRAIN_MASK_PATH) as Texture2D
+	if terrain_texture != null:
+		terrain_image = terrain_texture.get_image()
 	map_view.configure(texture, LOCATIONS, ROUTES)
 	map_view.location_clicked.connect(_on_location_clicked)
 	map_view.map_clicked.connect(_on_map_clicked)
@@ -283,6 +304,8 @@ func build_ui() -> void:
 	build_combat_layer()
 	build_in_game_menu()
 	build_save_prompt()
+	build_travel_prompt()
+	build_travel_message_popup()
 	build_time_display()
 
 func build_overworld_zoom_controls() -> void:
@@ -369,26 +392,31 @@ func build_title_layer() -> void:
 
 	var new_run_button := Button.new()
 	new_run_button.text = "New Run"
+	style_menu_popup_button(new_run_button)
 	new_run_button.pressed.connect(start_run)
 	menu.add_child(new_run_button)
 
 	title_continue_button = Button.new()
 	title_continue_button.text = "Continue Run"
+	style_menu_popup_button(title_continue_button)
 	title_continue_button.pressed.connect(continue_run)
 	menu.add_child(title_continue_button)
 
 	var catalogue_button := Button.new()
 	catalogue_button.text = "Catalogue"
+	style_menu_popup_button(catalogue_button)
 	catalogue_button.pressed.connect(show_catalogue)
 	menu.add_child(catalogue_button)
 
 	var settings_button := Button.new()
 	settings_button.text = "Settings"
+	style_menu_popup_button(settings_button)
 	settings_button.pressed.connect(show_settings)
 	menu.add_child(settings_button)
 
 	var quit_button := Button.new()
 	quit_button.text = "Quit Game"
+	style_menu_popup_button(quit_button)
 	quit_button.pressed.connect(func() -> void: get_tree().quit())
 	menu.add_child(quit_button)
 
@@ -400,14 +428,24 @@ func build_settings_panel() -> void:
 	add_child(settings_panel)
 
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 10)
+	stack.set_anchors_preset(Control.PRESET_CENTER)
+	stack.offset_left = -180
+	stack.offset_top = -190
+	stack.offset_right = 180
+	stack.offset_bottom = 190
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 16)
 	settings_panel.add_child(stack)
 	add_section_label(stack, "Settings")
 
 	var size_label := Label.new()
 	size_label.text = "Window Size"
+	size_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	var size_dropdown := OptionButton.new()
+	size_dropdown.custom_minimum_size = Vector2(260, 58)
+	size_dropdown.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	size_dropdown.add_theme_font_size_override("font_size", 20)
 	for index in range(SCREEN_SIZES.size()):
 		var screen_size: Vector2i = SCREEN_SIZES[index]
 		size_dropdown.add_item("%s x %s" % [screen_size.x, screen_size.y], index)
@@ -421,6 +459,9 @@ func build_settings_panel() -> void:
 	var fullscreen_toggle := CheckBox.new()
 	fullscreen_toggle.text = "Fullscreen"
 	fullscreen_toggle.button_pressed = true
+	fullscreen_toggle.custom_minimum_size = Vector2(260, 48)
+	fullscreen_toggle.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	fullscreen_toggle.add_theme_font_size_override("font_size", 20)
 	fullscreen_toggle.toggled.connect(func(enabled: bool) -> void:
 		set_fullscreen(enabled)
 		size_dropdown.disabled = enabled
@@ -436,6 +477,7 @@ func build_settings_panel() -> void:
 
 	var close := Button.new()
 	close.text = "Close"
+	style_menu_popup_button(close)
 	close.pressed.connect(func() -> void: settings_panel.visible = false)
 	stack.add_child(close)
 
@@ -733,10 +775,15 @@ func build_event_popup() -> void:
 	stack.add_child(image_space)
 	event_text_label = Label.new()
 	event_text_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	event_text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	event_text_label.add_theme_font_size_override("font_size", 20)
 	stack.add_child(event_text_label)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	stack.add_child(spacer)
 	event_choice_box = HBoxContainer.new()
 	event_choice_box.alignment = BoxContainer.ALIGNMENT_CENTER
-	event_choice_box.add_theme_constant_override("separation", 10)
+	event_choice_box.add_theme_constant_override("separation", 16)
 	stack.add_child(event_choice_box)
 
 func build_map_overlay() -> void:
@@ -792,6 +839,12 @@ func build_in_game_menu() -> void:
 	inventory_button.pressed.connect(show_inventory_popup)
 	top_right_controls.add_child(inventory_button)
 
+	enter_town_button = Button.new()
+	enter_town_button.text = "Enter Town"
+	enter_town_button.visible = false
+	enter_town_button.pressed.connect(enter_nearby_town)
+	top_right_controls.add_child(enter_town_button)
+
 	in_game_menu_popup = PanelContainer.new()
 	in_game_menu_popup.set_anchors_preset(Control.PRESET_FULL_RECT)
 	in_game_menu_popup.add_theme_stylebox_override("panel", make_full_window_style())
@@ -807,7 +860,6 @@ func build_in_game_menu() -> void:
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	stack.add_theme_constant_override("separation", 16)
 	in_game_menu_popup.add_child(stack)
-	add_section_label(stack, "Menu")
 
 	var main_menu := Button.new()
 	main_menu.text = "Main Menu"
@@ -858,28 +910,101 @@ func build_save_prompt() -> void:
 	add_child(save_prompt_popup)
 
 	var stack := VBoxContainer.new()
-	stack.add_theme_constant_override("separation", 10)
+	stack.set_anchors_preset(Control.PRESET_CENTER)
+	stack.offset_left = -180
+	stack.offset_top = -170
+	stack.offset_right = 180
+	stack.offset_bottom = 170
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 16)
 	save_prompt_popup.add_child(stack)
 	var label := Label.new()
 	label.name = "PromptLabel"
 	label.text = "Save this run?"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", 22)
 	stack.add_child(label)
 
 	var save_button := Button.new()
 	save_button.text = "Save Run"
+	style_menu_popup_button(save_button)
 	save_button.pressed.connect(func() -> void: complete_save_prompt(true))
 	stack.add_child(save_button)
 
 	var dont_save := Button.new()
 	dont_save.text = "Do Not Save"
+	style_menu_popup_button(dont_save)
 	dont_save.pressed.connect(func() -> void: complete_save_prompt(false))
 	stack.add_child(dont_save)
 
 	var cancel := Button.new()
 	cancel.text = "Cancel"
+	style_menu_popup_button(cancel)
 	cancel.pressed.connect(func() -> void: save_prompt_popup.visible = false)
 	stack.add_child(cancel)
+
+func build_travel_prompt() -> void:
+	travel_prompt_popup = PanelContainer.new()
+	travel_prompt_popup.set_anchors_preset(Control.PRESET_CENTER)
+	travel_prompt_popup.offset_left = -210
+	travel_prompt_popup.offset_top = -140
+	travel_prompt_popup.offset_right = 210
+	travel_prompt_popup.offset_bottom = 140
+	travel_prompt_popup.visible = false
+	add_child(travel_prompt_popup)
+
+	var stack := VBoxContainer.new()
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 16)
+	travel_prompt_popup.add_child(stack)
+
+	travel_prompt_label = Label.new()
+	travel_prompt_label.text = "Travel there?"
+	travel_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	travel_prompt_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	travel_prompt_label.add_theme_font_size_override("font_size", 22)
+	stack.add_child(travel_prompt_label)
+
+	var yes := Button.new()
+	yes.text = "Travel"
+	style_menu_popup_button(yes)
+	yes.pressed.connect(confirm_location_travel)
+	stack.add_child(yes)
+
+	var no := Button.new()
+	no.text = "Cancel"
+	style_menu_popup_button(no)
+	no.pressed.connect(func() -> void: travel_prompt_popup.visible = false)
+	stack.add_child(no)
+
+func build_travel_message_popup() -> void:
+	travel_message_popup = PanelContainer.new()
+	travel_message_popup.set_anchors_preset(Control.PRESET_CENTER)
+	travel_message_popup.offset_left = -210
+	travel_message_popup.offset_top = -120
+	travel_message_popup.offset_right = 210
+	travel_message_popup.offset_bottom = 120
+	travel_message_popup.visible = false
+	add_child(travel_message_popup)
+
+	var stack := VBoxContainer.new()
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 16)
+	travel_message_popup.add_child(stack)
+
+	travel_message_label = Label.new()
+	travel_message_label.text = "Unable to reach this destination"
+	travel_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	travel_message_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	travel_message_label.add_theme_font_size_override("font_size", 22)
+	stack.add_child(travel_message_label)
+
+	var close := Button.new()
+	close.text = "Close"
+	style_menu_popup_button(close)
+	close.pressed.connect(func() -> void: travel_message_popup.visible = false)
+	stack.add_child(close)
 
 func build_combat_layer() -> void:
 	combat_layer = Control.new()
@@ -1275,12 +1400,15 @@ func start_run() -> void:
 	inventory_popup.visible = false
 	character_info_popup.visible = false
 	town_popup.visible = false
+	travel_prompt_popup.visible = false
+	travel_message_popup.visible = false
 	map_overlay.visible = false
 	combat_layer.visible = false
 	top_right_controls.visible = true
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
 	render_all()
+	focus_overworld_on_player()
 	save_run()
 
 func continue_run() -> void:
@@ -1295,12 +1423,15 @@ func continue_run() -> void:
 	inventory_popup.visible = false
 	character_info_popup.visible = false
 	town_popup.visible = false
+	travel_prompt_popup.visible = false
+	travel_message_popup.visible = false
 	map_overlay.visible = false
 	combat_layer.visible = mode == "combat"
 	top_right_controls.visible = true
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
 	render_all()
+	focus_overworld_on_player()
 
 func return_to_title_with_save() -> void:
 	save_run()
@@ -1345,6 +1476,8 @@ func show_title() -> void:
 	inventory_popup.visible = false
 	character_info_popup.visible = false
 	town_popup.visible = false
+	travel_prompt_popup.visible = false
+	travel_message_popup.visible = false
 	map_overlay.visible = false
 	event_popup.visible = false
 	combat_layer.visible = false
@@ -1678,7 +1811,7 @@ func process_keyboard_overworld_movement(delta: float) -> void:
 	if direction == Vector2.ZERO:
 		return
 	clear_overworld_movement_queue()
-	move_player(direction, KEYBOARD_MOVE_SPEED * delta)
+	move_player(direction, KEYBOARD_MOVE_SPEED * minf(delta, 1.0 / 30.0))
 
 func held_overworld_direction() -> Vector2:
 	var direction := Vector2.ZERO
@@ -1701,12 +1834,33 @@ func move_player(direction: Vector2, distance: float) -> void:
 	if direction == Vector2.ZERO:
 		return
 	var old_position := player_pos
-	player_pos += direction.normalized() * distance
-	player_pos = Vector2(clampf(player_pos.x, 0.04, 0.96), clampf(player_pos.y, 0.04, 0.96))
+	var movement := direction.normalized() * distance
+	if not try_move_player_by(movement):
+		return
 	advance_time_for_overworld_distance(old_position.distance_to(player_pos))
 	reveal_around_player()
 	check_arrival()
 	render_all()
+
+func try_move_player_by(movement: Vector2) -> bool:
+	if movement == Vector2.ZERO:
+		return false
+	var candidates: Array[Vector2] = [movement]
+	if not is_zero_approx(movement.x) and not is_zero_approx(movement.y):
+		candidates.append(Vector2(movement.x, 0.0))
+		candidates.append(Vector2(0.0, movement.y))
+	for divisor in [2.0, 4.0, 8.0]:
+		candidates.append(movement / divisor)
+		if not is_zero_approx(movement.x) and not is_zero_approx(movement.y):
+			candidates.append(Vector2(movement.x / divisor, 0.0))
+			candidates.append(Vector2(0.0, movement.y / divisor))
+	for candidate in candidates:
+		var next_position := player_pos + candidate
+		next_position = Vector2(clampf(next_position.x, 0.04, 0.96), clampf(next_position.y, 0.04, 0.96))
+		if can_stand_at(next_position):
+			player_pos = next_position
+			return true
+	return false
 
 func process_overworld_movement(delta: float) -> void:
 	if overworld_movement_queue.is_empty():
@@ -1717,13 +1871,15 @@ func process_overworld_movement(delta: float) -> void:
 	var target: Vector2 = overworld_movement_queue[0]
 	var direction := target - player_pos
 	var distance := direction.length()
-	var step: float = CLICK_MOVE_SPEED * delta
+	var step: float = CLICK_MOVE_SPEED * minf(delta, 1.0 / 30.0)
 	var old_position := player_pos
 	if distance <= step:
 		player_pos = target
 		overworld_movement_queue.pop_front()
 	else:
-		player_pos += direction.normalized() * step
+		if not try_move_player_by(direction.normalized() * step):
+			clear_overworld_movement_queue()
+			return
 	player_pos = Vector2(clampf(player_pos.x, 0.04, 0.96), clampf(player_pos.y, 0.04, 0.96))
 	advance_time_for_overworld_distance(old_position.distance_to(player_pos))
 	reveal_around_player()
@@ -1754,14 +1910,190 @@ func queue_overworld_movement(destination: Vector2) -> void:
 		return
 	overworld_movement_queue.append(clamped_destination)
 
+func enqueue_confirmed_travel_path(path: Array[Vector2]) -> void:
+	clear_overworld_movement_queue()
+	for destination in path:
+		var clamped_destination := Vector2(clampf(destination.x, 0.04, 0.96), clampf(destination.y, 0.04, 0.96))
+		overworld_movement_queue.append(clamped_destination)
+
 func clear_overworld_movement_queue() -> void:
 	overworld_movement_queue.clear()
 
 func can_accept_overworld_movement() -> bool:
-	return mode == "overworld" and not title_layer.visible and not in_game_menu_popup.visible and not save_prompt_popup.visible and not settings_panel.visible and not catalogue_panel.visible and not log_popup.visible and not inventory_popup.visible and not town_popup.visible and not event_popup.visible and not map_overlay.visible and not combat_layer.visible
+	return mode == "overworld" and not title_layer.visible and not in_game_menu_popup.visible and not save_prompt_popup.visible and not travel_prompt_popup.visible and not travel_message_popup.visible and not settings_panel.visible and not catalogue_panel.visible and not log_popup.visible and not inventory_popup.visible and not town_popup.visible and not event_popup.visible and not map_overlay.visible and not combat_layer.visible
 
 func can_travel_to(_destination: Vector2) -> bool:
-	return true
+	return can_stand_at(_destination)
+
+func can_stand_at(map_position: Vector2) -> bool:
+	var terrain := terrain_at(map_position)
+	return terrain != "sea"
+
+func terrain_at(map_position: Vector2) -> String:
+	if terrain_image == null:
+		return "plains"
+	var image_size := terrain_image.get_size()
+	if image_size.x <= 0 or image_size.y <= 0:
+		return "plains"
+	var pixel_x: int = clampi(int(round(map_position.x * float(image_size.x - 1))), 0, image_size.x - 1)
+	var pixel_y: int = clampi(int(round(map_position.y * float(image_size.y - 1))), 0, image_size.y - 1)
+	var color := terrain_image.get_pixel(pixel_x, pixel_y)
+	return nearest_terrain_name(color)
+
+func nearest_terrain_name(color: Color) -> String:
+	var best_name := "plains"
+	var best_distance := INF
+	var terrain_colors := {
+		"sea": TERRAIN_SEA,
+		"river": TERRAIN_RIVER,
+		"plains": TERRAIN_PLAINS,
+		"desert": TERRAIN_DESERT,
+		"forest": TERRAIN_FOREST,
+		"rainforest": TERRAIN_RAINFOREST,
+		"mountain": TERRAIN_MOUNTAIN,
+		"tundra": TERRAIN_TUNDRA
+	}
+	for terrain_name in terrain_colors:
+		var terrain_color: Color = terrain_colors[terrain_name]
+		var red_delta := color.r - terrain_color.r
+		var green_delta := color.g - terrain_color.g
+		var blue_delta := color.b - terrain_color.b
+		var distance := red_delta * red_delta + green_delta * green_delta + blue_delta * blue_delta
+		if distance < best_distance:
+			best_distance = distance
+			best_name = str(terrain_name)
+	return best_name
+
+func terrain_travel_cost(map_position: Vector2) -> float:
+	match terrain_at(map_position):
+		"river":
+			return 1.7
+		"desert":
+			return 1.45
+		"forest":
+			return 1.35
+		"mountain":
+			return 2.2
+		"rainforest":
+			return 1.8
+		"tundra":
+			return 1.55
+		_:
+			return 1.0
+
+func map_to_travel_cell(map_position: Vector2) -> Vector2i:
+	return Vector2i(
+		clampi(int(floor(map_position.x * float(TRAVEL_GRID_SIZE.x))), 0, TRAVEL_GRID_SIZE.x - 1),
+		clampi(int(floor(map_position.y * float(TRAVEL_GRID_SIZE.y))), 0, TRAVEL_GRID_SIZE.y - 1)
+	)
+
+func travel_cell_to_map(cell: Vector2i) -> Vector2:
+	return Vector2((float(cell.x) + 0.5) / float(TRAVEL_GRID_SIZE.x), (float(cell.y) + 0.5) / float(TRAVEL_GRID_SIZE.y))
+
+func is_travel_cell_passable(cell: Vector2i) -> bool:
+	if cell.x < 0 or cell.y < 0 or cell.x >= TRAVEL_GRID_SIZE.x or cell.y >= TRAVEL_GRID_SIZE.y:
+		return false
+	return can_stand_at(travel_cell_to_map(cell))
+
+func nearest_passable_cell(origin: Vector2i) -> Vector2i:
+	if is_travel_cell_passable(origin):
+		return origin
+	var frontier: Array[Vector2i] = [origin]
+	var visited := {origin: true}
+	var directions: Array[Vector2i] = [
+		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
+		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)
+	]
+	while not frontier.is_empty():
+		var cell: Vector2i = frontier.pop_front()
+		for direction in directions:
+			var next_cell := cell + direction
+			if visited.has(next_cell):
+				continue
+			visited[next_cell] = true
+			if is_travel_cell_passable(next_cell):
+				return next_cell
+			if next_cell.x >= 0 and next_cell.y >= 0 and next_cell.x < TRAVEL_GRID_SIZE.x and next_cell.y < TRAVEL_GRID_SIZE.y:
+				frontier.append(next_cell)
+	return origin
+
+func shortest_travel_path(start_position: Vector2, destination: Vector2) -> Array[Vector2]:
+	var start_cell := nearest_passable_cell(map_to_travel_cell(start_position))
+	var goal_cell := nearest_passable_cell(map_to_travel_cell(destination))
+	if not is_travel_cell_passable(start_cell) or not is_travel_cell_passable(goal_cell):
+		return []
+	var open_cells: Array[Vector2i] = [start_cell]
+	var came_from: Dictionary = {}
+	var cost_so_far := {start_cell: 0.0}
+	var directions: Array[Vector2i] = [
+		Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1),
+		Vector2i(1, 1), Vector2i(1, -1), Vector2i(-1, 1), Vector2i(-1, -1)
+	]
+	while not open_cells.is_empty():
+		var current_index := lowest_travel_priority_index(open_cells, goal_cell, cost_so_far)
+		var current: Vector2i = open_cells[current_index]
+		open_cells.remove_at(current_index)
+		if current == goal_cell:
+			return reconstruct_travel_path(came_from, start_cell, goal_cell, destination)
+		for direction in directions:
+			var next_cell := current + direction
+			if not is_travel_cell_passable(next_cell):
+				continue
+			if direction.x != 0 and direction.y != 0:
+				if not is_travel_cell_passable(current + Vector2i(direction.x, 0)) or not is_travel_cell_passable(current + Vector2i(0, direction.y)):
+					continue
+			var step_distance := 1.4142 if direction.x != 0 and direction.y != 0 else 1.0
+			var next_position := travel_cell_to_map(next_cell)
+			var new_cost: float = float(cost_so_far[current]) + step_distance * terrain_travel_cost(next_position)
+			if not cost_so_far.has(next_cell) or new_cost < float(cost_so_far[next_cell]):
+				cost_so_far[next_cell] = new_cost
+				came_from[next_cell] = current
+				if not open_cells.has(next_cell):
+					open_cells.append(next_cell)
+	return []
+
+func lowest_travel_priority_index(open_cells: Array[Vector2i], goal_cell: Vector2i, cost_so_far: Dictionary) -> int:
+	var best_index := 0
+	var best_priority := INF
+	for index in open_cells.size():
+		var cell: Vector2i = open_cells[index]
+		var heuristic := absf(float(cell.x - goal_cell.x)) + absf(float(cell.y - goal_cell.y))
+		var priority: float = float(cost_so_far[cell]) + heuristic
+		if priority < best_priority:
+			best_priority = priority
+			best_index = index
+	return best_index
+
+func reconstruct_travel_path(came_from: Dictionary, start_cell: Vector2i, goal_cell: Vector2i, destination: Vector2) -> Array[Vector2]:
+	var cells: Array[Vector2i] = []
+	var current := goal_cell
+	cells.append(current)
+	while current != start_cell:
+		if not came_from.has(current):
+			return []
+		current = came_from[current]
+		cells.append(current)
+	cells.reverse()
+	var points: Array[Vector2] = []
+	for index in range(1, cells.size()):
+		points.append(travel_cell_to_map(cells[index]))
+	points.append(destination)
+	return simplify_travel_path(points)
+
+func simplify_travel_path(points: Array[Vector2]) -> Array[Vector2]:
+	if points.size() <= 2:
+		return points
+	var simplified: Array[Vector2] = []
+	var previous_direction := Vector2.ZERO
+	for index in points.size():
+		if index == points.size() - 1:
+			simplified.append(points[index])
+			continue
+		var current_direction := (points[index + 1] - points[index]).normalized().round()
+		if index == 0 or current_direction != previous_direction:
+			simplified.append(points[index])
+		previous_direction = current_direction
+	return simplified
 
 func reveal_around_player() -> void:
 	if explored.is_empty() or explored[-1].pos.distance_to(player_pos) > 0.018:
@@ -1786,9 +2118,12 @@ func discover_location(location_id: String) -> void:
 func check_arrival() -> void:
 	for location in LOCATIONS:
 		if discovered.has(location.id) and player_pos.distance_to(Vector2(location.x, location.y)) < 0.026 and location.id != current_location.id:
+			if str(location.type) == "town":
+				current_location = location
+				render_all()
+				return
 			current_location = location
-			if str(location.type) != "town":
-				add_log("You arrive at %s." % location.name, str(location.name))
+			add_log("You arrive at %s." % location.name, str(location.name))
 			enter_location()
 			return
 
@@ -1805,6 +2140,22 @@ func enter_location() -> void:
 	if mode != "overworld":
 		clear_overworld_movement_queue()
 	render_all()
+
+func nearby_town() -> Dictionary:
+	for location in LOCATIONS:
+		if str(location.type) != "town" or not discovered.has(location.id):
+			continue
+		if player_pos.distance_to(Vector2(float(location.x), float(location.y))) <= TOWN_ENTRY_RADIUS:
+			return location
+	return {}
+
+func enter_nearby_town() -> void:
+	var town := nearby_town()
+	if town.is_empty():
+		return
+	current_location = town
+	clear_overworld_movement_queue()
+	enter_location()
 
 func scout() -> void:
 	for location in LOCATIONS:
@@ -1827,6 +2178,10 @@ func render_all() -> void:
 	mode_label.text = "Mode\n%s" % mode
 	overworld_hud.visible = not inventory_overlay_active and mode != "combat" and not title_layer.visible
 	overworld_zoom_controls.visible = mode == "overworld" and not title_layer.visible and not inventory_overlay_active and not town_popup.visible and not event_popup.visible and not combat_layer.visible
+	var town_in_range := nearby_town()
+	enter_town_button.visible = mode == "overworld" and not town_in_range.is_empty() and not title_layer.visible
+	if enter_town_button.visible:
+		enter_town_button.text = "Enter %s" % str(town_in_range.name)
 	location_name.text = current_location.name
 	location_lore.text = current_location.lore
 	map_view.set_world_state(player_pos, discovered, explored, current_location.id)
@@ -1845,7 +2200,7 @@ func render_time_display() -> void:
 		return
 	time_label.text = "Year %s, Day %s" % [calendar_year, calendar_day]
 	var gameplay_mode := mode == "overworld" or mode == "town" or mode == "event" or mode == "combat"
-	var blocking_popup_open := in_game_menu_popup.visible or save_prompt_popup.visible or settings_panel.visible or catalogue_panel.visible or log_popup.visible or inventory_popup.visible or map_overlay.visible or character_info_popup.visible
+	var blocking_popup_open := in_game_menu_popup.visible or save_prompt_popup.visible or travel_prompt_popup.visible or travel_message_popup.visible or settings_panel.visible or catalogue_panel.visible or log_popup.visible or inventory_popup.visible or map_overlay.visible or character_info_popup.visible
 	time_label.visible = gameplay_mode and not title_layer.visible and not blocking_popup_open
 	time_label.move_to_front()
 
@@ -2307,6 +2662,11 @@ func leave_town() -> void:
 	town_popup.visible = false
 	clear_overworld_movement_queue()
 	render_all()
+	focus_overworld_on_player()
+
+func focus_overworld_on_player() -> void:
+	if map_view != null:
+		map_view.focus_on_map_position(player_pos)
 
 func render_event() -> void:
 	clear_children(event_panel)
@@ -2320,10 +2680,12 @@ func render_event() -> void:
 	clear_children(event_choice_box)
 	var fight := Button.new()
 	fight.text = "Face It"
+	style_menu_popup_button(fight)
 	fight.pressed.connect(func() -> void: start_combat(event_data.enemy, current_location.danger))
 	event_choice_box.add_child(fight)
 	var search := Button.new()
 	search.text = "Search Carefully"
+	style_menu_popup_button(search)
 	search.pressed.connect(resolve_event_without_combat)
 	event_choice_box.add_child(search)
 
@@ -3370,10 +3732,37 @@ func _on_location_clicked(location_id: String) -> void:
 	var location := get_location(location_id)
 	if location.is_empty():
 		return
-	queue_overworld_movement(Vector2(float(location.x), float(location.y)))
+	if not can_accept_overworld_movement():
+		return
+	pending_travel_location_id = location_id
+	travel_prompt_label.text = "Travel to %s?" % str(location.name)
+	travel_prompt_popup.visible = true
+	travel_prompt_popup.move_to_front()
 
-func _on_map_clicked(map_position: Vector2) -> void:
-	queue_overworld_movement(map_position)
+func _on_map_clicked(_map_position: Vector2) -> void:
+	pass
+
+func confirm_location_travel() -> void:
+	if pending_travel_location_id == "":
+		travel_prompt_popup.visible = false
+		return
+	var location := get_location(pending_travel_location_id)
+	pending_travel_location_id = ""
+	travel_prompt_popup.visible = false
+	if location.is_empty():
+		return
+	var destination := Vector2(float(location.x), float(location.y))
+	var path := shortest_travel_path(player_pos, destination)
+	if path.is_empty():
+		show_travel_message("Unable to reach this destination")
+		render_all()
+		return
+	enqueue_confirmed_travel_path(path)
+
+func show_travel_message(message: String) -> void:
+	travel_message_label.text = message
+	travel_message_popup.visible = true
+	travel_message_popup.move_to_front()
 
 func show_settings() -> void:
 	settings_panel.visible = true
