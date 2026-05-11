@@ -1,0 +1,452 @@
+[
+	{
+		"core": "Pine",
+		"danger": 2.0,
+		"id": "eno",
+		"lore": "A northern road-stop tucked below the snowline and watched by old border pines.",
+		"name": "Eno",
+		"town": [
+			"Inn",
+			"Shop",
+			"Notice Board"
+		],
+		"type": "town",
+		"x": 0.424,
+		"y": 0.169
+	},
+	{
+		"core": "Frost",
+		"danger": 2.0,
+		"id": "lasty",
+		"lore": "A wind-bitten settlement where winter traders weigh every rumor twice.",
+		"name": "Lasty",
+		"town": [
+			"Inn",
+			"Shop",
+			"Gate Watch"
+		],
+		"type": "town",
+		"x": 0.519,
+		"y": 0.176
+	},
+	{
+		"core": "Stone",
+		"danger": 3.0,
+		"id": "rock_point",
+		"lore": "A cliffside town built where the cold road breaks against black rock.",
+		"name": "Rock-Point",
+		"town": [
+			"Inn",
+			"Shop",
+			"Trainer"
+		],
+		"type": "town",
+		"x": 0.609,
+		"y": 0.177
+	},
+	{
+		"core": "Root",
+		"danger": 2.0,
+		"id": "oak",
+		"lore": "A quiet wood-town known for hard bargains and older oaths.",
+		"name": "Oak",
+		"town": [
+			"Inn",
+			"Shop",
+			"Notice Board"
+		],
+		"type": "town",
+		"x": 0.697,
+		"y": 0.176
+	},
+	{
+		"core": "Brine",
+		"danger": 3.0,
+		"id": "salt",
+		"lore": "A mineral market at the desert's edge, bright with white dust and sharp tongues.",
+		"name": "Salt",
+		"town": [
+			"Inn",
+			"Shop",
+			"Tavern"
+		],
+		"type": "town",
+		"x": 0.666,
+		"y": 0.21
+	},
+	{
+		"core": "Hearth",
+		"danger": 2.0,
+		"id": "cottage",
+		"lore": "A small roadside haven where lanterns stay lit through bad weather.",
+		"name": "Cottage",
+		"town": [
+			"Inn",
+			"Shop",
+			"Militia Yard"
+		],
+		"type": "town",
+		"x": 0.749,
+		"y": 0.202
+	},
+	{
+		"core": "Reed",
+		"danger": 2.0,
+		"id": "valley",
+		"lore": "A river-valley town with soft fields, hard boots, and guarded bridges.",
+		"name": "Valley",
+		"town": [
+			"Inn",
+			"Shop",
+			"Notice Board"
+		],
+		"type": "town",
+		"x": 0.788,
+		"y": 0.225
+	},
+	{
+		"core": "Coast",
+		"danger": 3.0,
+		"id": "scrant",
+		"lore": "A coastal hamlet pressed between surf, reeds, and the eastern road.",
+		"name": "Scrant",
+		"town": [
+			"Inn",
+			"Shop",
+			"Gate Watch"
+		],
+		"type": "town",
+		"x": 0.835,
+		"y": 0.243
+	},
+	{
+		"core": "Willow",
+		"danger": 3.0,
+		"id": "hent",
+		"lore": "A river crossing where ferrymen trade news before coin.",
+		"name": "Hent",
+		"town": [
+			"Inn",
+			"Shop",
+			"Tavern"
+		],
+		"type": "town",
+		"x": 0.778,
+		"y": 0.276
+	},
+	{
+		"core": "Ash",
+		"danger": 3.0,
+		"id": "heat",
+		"lore": "A dryland town of kiln smoke, cracked wells, and stubborn survivors.",
+		"name": "Heat",
+		"town": [
+			"Inn",
+			"Shop",
+			"Trainer"
+		],
+		"type": "town",
+		"x": 0.758,
+		"y": 0.313
+	},
+	{
+		"core": "Shell",
+		"danger": 3.0,
+		"id": "beach",
+		"lore": "A shore town where fisherfolk read storms better than maps.",
+		"name": "Beach",
+		"town": [
+			"Inn",
+			"Shop",
+			"Harbor"
+		],
+		"type": "town",
+		"x": 0.886,
+		"y": 0.329
+	},
+	{
+		"core": "Spire",
+		"danger": 4.0,
+		"id": "tower",
+		"lore": "A fortified watchpost rising over the eastern delta roads.",
+		"name": "Tower",
+		"town": [
+			"Inn",
+			"Shop",
+			"Gate Watch"
+		],
+		"type": "town",
+		"x": 0.884,
+		"y": 0.395
+	},
+	{
+		"core": "Ford",
+		"danger": 2.0,
+		"id": "drasig",
+		"lore": "A riverside town where western caravans regroup before the central plains.",
+		"name": "Drasig",
+		"town": [
+			"Inn",
+			"Shop",
+			"Notice Board"
+		],
+		"type": "town",
+		"x": 0.322,
+		"y": 0.288
+	},
+	{
+		"core": "Bloom",
+		"danger": 1.0,
+		"id": "love",
+		"lore": "A green village with bright banners, old songs, and guarded smiles.",
+		"name": "Love",
+		"town": [
+			"Inn",
+			"Shop",
+			"Tavern"
+		],
+		"type": "town",
+		"x": 0.368,
+		"y": 0.249
+	},
+	{
+		"core": "Hoof",
+		"danger": 2.0,
+		"id": "horsetown",
+		"lore": "A plains town built around stables, couriers, and road-worn mercenaries.",
+		"name": "HorseTown",
+		"town": [
+			"Inn",
+			"Shop",
+			"Militia Yard"
+		],
+		"type": "town",
+		"x": 0.432,
+		"y": 0.265
+	},
+	{
+		"core": "Birch",
+		"danger": 2.0,
+		"id": "birchwood",
+		"lore": "A pale-wood settlement where carts creak through misty groves.",
+		"name": "BirchWood",
+		"town": [
+			"Inn",
+			"Shop",
+			"Notice Board"
+		],
+		"type": "town",
+		"x": 0.401,
+		"y": 0.473
+	},
+	{
+		"core": "Coin",
+		"danger": 2.0,
+		"id": "trade",
+		"lore": "A market town whose square never seems to close.",
+		"name": "Trade",
+		"town": [
+			"Inn",
+			"Shop",
+			"Trainer"
+		],
+		"type": "town",
+		"x": 0.422,
+		"y": 0.494
+	},
+	{
+		"core": "Lantern",
+		"danger": 2.0,
+		"id": "lorrback",
+		"lore": "A mountain-foot town that keeps careful ledgers and brighter lamps.",
+		"name": "Lorrback",
+		"town": [
+			"Inn",
+			"Shop",
+			"Tavern"
+		],
+		"type": "town",
+		"x": 0.469,
+		"y": 0.48
+	},
+	{
+		"core": "Slate",
+		"danger": 2.0,
+		"id": "stine",
+		"lore": "A stony village where masons patch roads as often as houses.",
+		"name": "Stine",
+		"town": [
+			"Inn",
+			"Shop",
+			"Gate Watch"
+		],
+		"type": "town",
+		"x": 0.492,
+		"y": 0.489
+	},
+	{
+		"core": "Ring",
+		"danger": 3.0,
+		"id": "circle",
+		"lore": "A crossroads town laid around an old ritual circle no one admits to using.",
+		"name": "Circle",
+		"town": [
+			"Inn",
+			"Shop",
+			"Notice Board"
+		],
+		"type": "town",
+		"x": 0.56,
+		"y": 0.452
+	},
+	{
+		"core": "Banner",
+		"danger": 3.0,
+		"id": "greatling",
+		"lore": "A proud central town whose walls carry too many repaired scars.",
+		"name": "Greatling",
+		"town": [
+			"Inn",
+			"Shop",
+			"Militia Yard"
+		],
+		"type": "town",
+		"x": 0.622,
+		"y": 0.454
+	},
+	{
+		"core": "Bough",
+		"danger": 3.0,
+		"id": "grandwood",
+		"lore": "A deepwood trade post where timber, medicine, and secrets change hands.",
+		"name": "GrandWood",
+		"town": [
+			"Inn",
+			"Shop",
+			"Tavern"
+		],
+		"type": "town",
+		"x": 0.672,
+		"y": 0.509
+	},
+	{
+		"core": "Iron",
+		"danger": 3.0,
+		"id": "smithy",
+		"lore": "A forge-town that rings all day and glows all night.",
+		"name": "Smithy",
+		"town": [
+			"Inn",
+			"Shop",
+			"Forge"
+		],
+		"type": "town",
+		"x": 0.625,
+		"y": 0.553
+	},
+	{
+		"core": "Crown",
+		"danger": 4.0,
+		"id": "crown",
+		"lore": "A lakeside town living in the shadow of broken royal stone.",
+		"name": "Crown",
+		"town": [
+			"Inn",
+			"Shop",
+			"Trainer"
+		],
+		"type": "town",
+		"x": 0.695,
+		"y": 0.629
+	},
+	{
+		"core": "Hope",
+		"danger": 1.0,
+		"id": "glory",
+		"lore": "A southern village beside old palace ruins, safe enough to begin a desperate run.",
+		"name": "Glory",
+		"town": [
+			"Village Inn",
+			"Shop",
+			"Militia Yard"
+		],
+		"type": "town",
+		"x": 0.575,
+		"y": 0.778
+	},
+	{
+		"core": "Hill",
+		"danger": 2.0,
+		"id": "hill",
+		"lore": "A raised holdfast watching the roads north of Glory.",
+		"name": "Hill",
+		"town": [
+			"Inn",
+			"Shop",
+			"Gate Watch"
+		],
+		"type": "town",
+		"x": 0.6,
+		"y": 0.656
+	},
+	{
+		"core": "Ember",
+		"danger": 3.0,
+		"id": "fire",
+		"lore": "A camp of forgefires and signal flames on the mountain road.",
+		"name": "Fire",
+		"town": [
+			"Inn",
+			"Shop",
+			"Forge"
+		],
+		"type": "town",
+		"x": 0.624,
+		"y": 0.681
+	},
+	{
+		"core": "Tide",
+		"danger": 4.0,
+		"id": "sea",
+		"lore": "A southern coast town where jungle paths end at salt gates.",
+		"name": "Sea",
+		"town": [
+			"Inn",
+			"Shop",
+			"Harbor"
+		],
+		"type": "town",
+		"x": 0.794,
+		"y": 0.864
+	},
+	{
+		"core": "Hollow",
+		"danger": 2.0,
+		"id": "empty",
+		"lore": "A quiet keep where abandoned wells answer with unfamiliar voices.",
+		"name": "Empty",
+		"type": "event",
+		"x": 0.541,
+		"y": 0.734
+	},
+	{
+		"core": "Moon",
+		"danger": 3.0,
+		"id": "dream",
+		"lore": "Mist curls around broken causeways and sleep has sharp little teeth.",
+		"name": "Dream",
+		"type": "event",
+		"x": 0.595,
+		"y": 0.748
+	},
+	{
+		"core": "Glass",
+		"danger": 4.0,
+		"id": "sand",
+		"lore": "The eastern waste scours armor clean and leaves maps full of lies.",
+		"name": "Sand",
+		"type": "event",
+		"x": 0.931,
+		"y": 0.632
+	}
+]

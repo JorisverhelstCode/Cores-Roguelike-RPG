@@ -6,6 +6,7 @@ const KEYBOARD_MOVE_SPEED := 0.075
 const CLICK_MOVE_SPEED := 0.065
 const OVERWORLD_SQUARE_SIZE := 0.025
 const DAYS_PER_YEAR := 365
+const HOURS_PER_DAY := 12
 const TOWN_ENTRY_RADIUS := 0.018
 const TRAVEL_GRID_SIZE := Vector2i(96, 96)
 const TERRAIN_SEA := Color8(15, 77, 137)
@@ -16,7 +17,14 @@ const TERRAIN_FOREST := Color8(48, 104, 42)
 const TERRAIN_RAINFOREST := Color8(20, 72, 38)
 const TERRAIN_MOUNTAIN := Color8(108, 95, 80)
 const TERRAIN_TUNDRA := Color8(220, 237, 242)
+const MOUNTAIN_CORE_SAMPLE_RADIUS := 0.008
+const MOUNTAIN_CORE_NEIGHBOR_THRESHOLD := 6
 const FOG_RADIUS := 170.0
+const LOCATIONS_DATA_PATH := "res://assets/data/locations.json"
+const ROUTES_DATA_PATH := "res://assets/data/routes.json"
+const CARDS_DATA_PATH := "res://assets/data/cards.json"
+const OVERLAY_CLOSE_BUTTON_TOP := 76.0
+const OVERLAY_CLOSE_BUTTON_SIZE := 56.0
 const SCREEN_SIZES: Array[Vector2i] = [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]
 const ICONS := {
 	"health": "res://assets/icons/heart.svg",
@@ -29,21 +37,49 @@ const ICONS := {
 	"gold": "res://assets/icons/coin.svg",
 	"attack": "res://assets/icons/sword.svg",
 	"range": "res://assets/icons/range.svg",
-	"magic_attack": "res://assets/icons/magic_blast.svg",
+	"magic_attack": "res://assets/icons/magic_attack.png",
 	"bleeding_heart": "res://assets/icons/bleeding_heart.svg"
 }
 
-const LOCATIONS: Array[Dictionary] = [
-	{"id": "hill", "name": "Hill", "type": "town", "x": 0.599, "y": 0.628, "danger": 1, "core": "Stone", "lore": "A stubborn hill-fort guarding the road beneath the northern teeth.", "town": ["Inn", "Market", "Trainer", "Notice Board"]},
-	{"id": "fire", "name": "Fire", "type": "town", "x": 0.625, "y": 0.665, "danger": 2, "core": "Ember", "lore": "Forgefires burn through the fog here, drawing raiders and relic hunters.", "town": ["Forge", "Corewright", "Tavern", "Gate Watch"]},
-	{"id": "empty", "name": "Empty", "type": "event", "x": 0.541, "y": 0.688, "danger": 2, "core": "Hollow", "lore": "A quiet keep where abandoned wells answer with unfamiliar voices."},
-	{"id": "dream", "name": "Dream", "type": "event", "x": 0.595, "y": 0.690, "danger": 3, "core": "Moon", "lore": "Mist curls around broken causeways and sleep has sharp little teeth."},
-	{"id": "glory", "name": "Glory", "type": "town", "x": 0.575, "y": 0.726, "danger": 3, "core": "Crown", "lore": "A small village built beside old palace ruins, safe enough to begin a desperate run.", "town": ["Village Inn", "Relic Shop", "Militia Yard", "Old Ruins"]},
-	{"id": "sand", "name": "Sand", "type": "event", "x": 0.931, "y": 0.632, "danger": 4, "core": "Glass", "lore": "The eastern waste scours armor clean and leaves maps full of lies."},
-	{"id": "sea", "name": "Sea", "type": "town", "x": 0.794, "y": 0.846, "danger": 4, "core": "Tide", "lore": "Salt gates, drowned ruins, and ships that return with no crew.", "town": ["Harbor", "Fishmonger", "Ship Shrine", "Smuggler Den"]}
+const DEFAULT_LOCATIONS: Array[Dictionary] = [
+	{"id": "eno", "name": "Eno", "type": "town", "x": 0.424, "y": 0.169, "danger": 2, "core": "Pine", "lore": "A northern road-stop tucked below the snowline and watched by old border pines.", "town": ["Inn", "Shop", "Notice Board"]},
+	{"id": "lasty", "name": "Lasty", "type": "town", "x": 0.519, "y": 0.176, "danger": 2, "core": "Frost", "lore": "A wind-bitten settlement where winter traders weigh every rumor twice.", "town": ["Inn", "Shop", "Gate Watch"]},
+	{"id": "rock_point", "name": "Rock-Point", "type": "town", "x": 0.609, "y": 0.177, "danger": 3, "core": "Stone", "lore": "A cliffside town built where the cold road breaks against black rock.", "town": ["Inn", "Shop", "Trainer"]},
+	{"id": "oak", "name": "Oak", "type": "town", "x": 0.697, "y": 0.176, "danger": 2, "core": "Root", "lore": "A quiet wood-town known for hard bargains and older oaths.", "town": ["Inn", "Shop", "Notice Board"]},
+	{"id": "salt", "name": "Salt", "type": "town", "x": 0.666, "y": 0.210, "danger": 3, "core": "Brine", "lore": "A mineral market at the desert's edge, bright with white dust and sharp tongues.", "town": ["Inn", "Shop", "Tavern"]},
+	{"id": "cottage", "name": "Cottage", "type": "town", "x": 0.749, "y": 0.202, "danger": 2, "core": "Hearth", "lore": "A small roadside haven where lanterns stay lit through bad weather.", "town": ["Inn", "Shop", "Militia Yard"]},
+	{"id": "valley", "name": "Valley", "type": "town", "x": 0.788, "y": 0.225, "danger": 2, "core": "Reed", "lore": "A river-valley town with soft fields, hard boots, and guarded bridges.", "town": ["Inn", "Shop", "Notice Board"]},
+	{"id": "scrant", "name": "Scrant", "type": "town", "x": 0.835, "y": 0.243, "danger": 3, "core": "Coast", "lore": "A coastal hamlet pressed between surf, reeds, and the eastern road.", "town": ["Inn", "Shop", "Gate Watch"]},
+	{"id": "hent", "name": "Hent", "type": "town", "x": 0.778, "y": 0.276, "danger": 3, "core": "Willow", "lore": "A river crossing where ferrymen trade news before coin.", "town": ["Inn", "Shop", "Tavern"]},
+	{"id": "heat", "name": "Heat", "type": "town", "x": 0.758, "y": 0.313, "danger": 3, "core": "Ash", "lore": "A dryland town of kiln smoke, cracked wells, and stubborn survivors.", "town": ["Inn", "Shop", "Trainer"]},
+	{"id": "beach", "name": "Beach", "type": "town", "x": 0.886, "y": 0.329, "danger": 3, "core": "Shell", "lore": "A shore town where fisherfolk read storms better than maps.", "town": ["Inn", "Shop", "Harbor"]},
+	{"id": "tower", "name": "Tower", "type": "town", "x": 0.884, "y": 0.395, "danger": 4, "core": "Spire", "lore": "A fortified watchpost rising over the eastern delta roads.", "town": ["Inn", "Shop", "Gate Watch"]},
+	{"id": "drasig", "name": "Drasig", "type": "town", "x": 0.322, "y": 0.288, "danger": 2, "core": "Ford", "lore": "A riverside town where western caravans regroup before the central plains.", "town": ["Inn", "Shop", "Notice Board"]},
+	{"id": "love", "name": "Love", "type": "town", "x": 0.368, "y": 0.249, "danger": 1, "core": "Bloom", "lore": "A green village with bright banners, old songs, and guarded smiles.", "town": ["Inn", "Shop", "Tavern"]},
+	{"id": "horsetown", "name": "HorseTown", "type": "town", "x": 0.432, "y": 0.265, "danger": 2, "core": "Hoof", "lore": "A plains town built around stables, couriers, and road-worn mercenaries.", "town": ["Inn", "Shop", "Militia Yard"]},
+	{"id": "birchwood", "name": "BirchWood", "type": "town", "x": 0.401, "y": 0.473, "danger": 2, "core": "Birch", "lore": "A pale-wood settlement where carts creak through misty groves.", "town": ["Inn", "Shop", "Notice Board"]},
+	{"id": "trade", "name": "Trade", "type": "town", "x": 0.422, "y": 0.494, "danger": 2, "core": "Coin", "lore": "A market town whose square never seems to close.", "town": ["Inn", "Shop", "Trainer"]},
+	{"id": "lorrback", "name": "Lorrback", "type": "town", "x": 0.469, "y": 0.480, "danger": 2, "core": "Lantern", "lore": "A mountain-foot town that keeps careful ledgers and brighter lamps.", "town": ["Inn", "Shop", "Tavern"]},
+	{"id": "stine", "name": "Stine", "type": "town", "x": 0.492, "y": 0.489, "danger": 2, "core": "Slate", "lore": "A stony village where masons patch roads as often as houses.", "town": ["Inn", "Shop", "Gate Watch"]},
+	{"id": "circle", "name": "Circle", "type": "town", "x": 0.560, "y": 0.452, "danger": 3, "core": "Ring", "lore": "A crossroads town laid around an old ritual circle no one admits to using.", "town": ["Inn", "Shop", "Notice Board"]},
+	{"id": "greatling", "name": "Greatling", "type": "town", "x": 0.622, "y": 0.454, "danger": 3, "core": "Banner", "lore": "A proud central town whose walls carry too many repaired scars.", "town": ["Inn", "Shop", "Militia Yard"]},
+	{"id": "grandwood", "name": "GrandWood", "type": "town", "x": 0.672, "y": 0.509, "danger": 3, "core": "Bough", "lore": "A deepwood trade post where timber, medicine, and secrets change hands.", "town": ["Inn", "Shop", "Tavern"]},
+	{"id": "smithy", "name": "Smithy", "type": "town", "x": 0.625, "y": 0.553, "danger": 3, "core": "Iron", "lore": "A forge-town that rings all day and glows all night.", "town": ["Inn", "Shop", "Forge"]},
+	{"id": "crown", "name": "Crown", "type": "town", "x": 0.695, "y": 0.629, "danger": 4, "core": "Crown", "lore": "A lakeside town living in the shadow of broken royal stone.", "town": ["Inn", "Shop", "Trainer"]},
+	{"id": "glory", "name": "Glory", "type": "town", "x": 0.575, "y": 0.778, "danger": 1, "core": "Hope", "lore": "A southern village beside old palace ruins, safe enough to begin a desperate run.", "town": ["Village Inn", "Shop", "Militia Yard"]},
+	{"id": "hill", "name": "Hill", "type": "town", "x": 0.600, "y": 0.656, "danger": 2, "core": "Hill", "lore": "A raised holdfast watching the roads north of Glory.", "town": ["Inn", "Shop", "Gate Watch"]},
+	{"id": "fire", "name": "Fire", "type": "town", "x": 0.624, "y": 0.681, "danger": 3, "core": "Ember", "lore": "A camp of forgefires and signal flames on the mountain road.", "town": ["Inn", "Shop", "Forge"]},
+	{"id": "sea", "name": "Sea", "type": "town", "x": 0.794, "y": 0.864, "danger": 4, "core": "Tide", "lore": "A southern coast town where jungle paths end at salt gates.", "town": ["Inn", "Shop", "Harbor"]},
+	{"id": "empty", "name": "Empty", "type": "event", "x": 0.541, "y": 0.734, "danger": 2, "core": "Hollow", "lore": "A quiet keep where abandoned wells answer with unfamiliar voices."},
+	{"id": "dream", "name": "Dream", "type": "event", "x": 0.595, "y": 0.748, "danger": 3, "core": "Moon", "lore": "Mist curls around broken causeways and sleep has sharp little teeth."},
+	{"id": "sand", "name": "Sand", "type": "event", "x": 0.931, "y": 0.632, "danger": 4, "core": "Glass", "lore": "The eastern waste scours armor clean and leaves maps full of lies."}
 ]
 
-const ROUTES: Array[Array] = [["hill", "fire"], ["fire", "empty"], ["empty", "dream"], ["dream", "glory"], ["dream", "sand"], ["sand", "sea"]]
+const DEFAULT_ROUTES: Array[Array] = [
+	["eno", "lasty"], ["lasty", "rock_point"], ["rock_point", "oak"], ["oak", "cottage"], ["cottage", "valley"], ["valley", "scrant"], ["valley", "hent"], ["hent", "heat"], ["heat", "beach"], ["beach", "tower"],
+	["love", "drasig"], ["drasig", "horsetown"], ["horsetown", "birchwood"], ["birchwood", "trade"], ["trade", "lorrback"], ["lorrback", "stine"], ["stine", "circle"], ["circle", "greatling"], ["greatling", "grandwood"], ["grandwood", "smithy"], ["smithy", "crown"],
+	["glory", "hill"], ["hill", "fire"], ["fire", "dream"], ["dream", "empty"], ["empty", "crown"], ["crown", "sea"], ["crown", "smithy"], ["sand", "tower"]
+]
 const EQUIPMENT_SLOTS := ["head", "body", "arms", "weapon", "legs", "shoes", "trinket1", "trinket2", "trinket3"]
 const BASIC_EQUIPMENT_BY_SLOT := {
 	"head": "Empty",
@@ -72,7 +108,7 @@ const EQUIPMENT_DATA := {
 	"Ruinguard Hood": {"slot": "head", "icon": "block", "stats": {}, "abilities": [], "cards": ["guard"]},
 	"Cracked Moon Charm": {"slot": "trinket", "icon": "magic_attack", "stats": {}, "abilities": [], "cards": ["spark"]}
 }
-const CARDS := {
+const DEFAULT_CARDS := {
 	"headbut": {"name": "Headbut", "cores": 0, "energy": 0, "type": "attack", "damage_type": "normal", "damage": 4, "range": 1, "block": 3, "magic_block": 1, "text": "Only deals damage to characters with an Empty head piece slot."},
 	"body_block": {"name": "Body Block", "cores": 0, "energy": 0, "type": "skill", "block": 6, "magic_block": 2, "text": "Lose 2 life."},
 	"shoulder_throw": {"name": "Shoulder Throw", "cores": 0, "energy": 1, "type": "attack", "damage_type": "normal", "damage": 6, "range": 2, "block": 2, "magic_block": 0, "text": "NormalAttack 6 on range 2."},
@@ -118,10 +154,17 @@ const EVENTS := {
 	"dream": {"title": "Blue Lantern Dream", "text": "A lantern burns in daylight and casts three shadows. One of them draws a blade.", "enemy": "Moth Duelist"},
 	"sand": {"title": "Glass Road Ambush", "text": "Sand hardens beneath your boots. Shapes rise below the transparent crust.", "enemy": "Glass Viper"}
 }
+const QUESTS: Array[Dictionary] = [
+	{"id": "main_reach_crown", "kind": "main", "title": "Reach Crown", "summary": "Find a safe route north from Glory and learn why Crown still matters.", "objective": "Travel through Belland until Crown is discovered.", "completed": false},
+	{"id": "side_stock_up", "kind": "side", "title": "Stock Up", "summary": "Visit a town shop and prepare Jiali for the road.", "objective": "Enter any town and use its Shop.", "completed": false},
+	{"id": "side_old_roads", "kind": "side", "title": "Old Roads", "summary": "Map the roads around Glory before pushing into danger.", "objective": "Discover Hill, Fire, and Dream.", "completed": false},
+	{"id": "finished_leave_glory", "kind": "side", "title": "Leave Glory", "summary": "The run begins just south of Glory.", "objective": "Start Chapter 1.", "completed": true}
+]
 
 var run := 0
 var calendar_year := 0
 var calendar_day := 0
+var calendar_hour := 0
 var travel_day_progress := 0.0
 var player: Dictionary = {}
 var player_pos := Vector2.ZERO
@@ -134,17 +177,33 @@ var log_entries: Array = []
 var combat: Dictionary = {}
 var saved_run: Dictionary = {}
 var overworld_movement_queue: Array[Vector2] = []
+var fog_hidden_for_testing := false
+var collapsed_quests: Dictionary = {}
+var locations: Array[Dictionary] = []
+var routes: Array[Array] = []
+var cards: Dictionary = {}
 
 var title_layer: Control
 var title_continue_button: Button
-var top_right_controls: HBoxContainer
+var top_right_controls: PanelContainer
+var top_right_button_bar: HBoxContainer
+var chronicle_button: Button
+var inventory_button: Button
+var map_button: Button
 var overworld_zoom_controls: HBoxContainer
+var fog_test_button: Button
+var overworld_stats_bar: HBoxContainer
+var quest_tracker_panel: PanelContainer
+var quest_tracker_list: VBoxContainer
 var enter_town_button: Button
 var terrain_image: Image
 var map_overlay: Control
 var map_overlay_view
+var compact_map_panel: PanelContainer
+var compact_map_view
 var in_game_menu_button: Button
 var in_game_menu_popup: PanelContainer
+var in_game_menu_return_view := ""
 var save_prompt_popup: PanelContainer
 var save_prompt_action := ""
 var travel_prompt_popup: PanelContainer
@@ -153,6 +212,7 @@ var pending_travel_location_id := ""
 var travel_message_popup: PanelContainer
 var travel_message_label: Label
 var settings_panel: PanelContainer
+var settings_return_view := ""
 var catalogue_panel: PanelContainer
 var catalogue_detail_panel: PanelContainer
 var catalogue_detail_box: VBoxContainer
@@ -176,7 +236,7 @@ var held_inventory_source := ""
 var inventory_drag_preview: PanelContainer
 var character_info_popup: PanelContainer
 var character_info_box: VBoxContainer
-var town_popup: PanelContainer
+var town_popup: Control
 var town_title_label: Label
 var town_lore_label: Label
 var town_place_box: VBoxContainer
@@ -215,7 +275,6 @@ var map_view
 var run_label: Label
 var hp_label: Label
 var cores_label: Label
-var speed_label: Label
 var deck_label: Label
 var gold_label: Label
 var mode_label: Label
@@ -230,16 +289,62 @@ var log_list: VBoxContainer
 func _ready() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 	build_ui()
+	load_design_data()
 	var texture := load(MAP_PATH) as Texture2D
 	var terrain_texture := load(TERRAIN_MASK_PATH) as Texture2D
 	if terrain_texture != null:
 		terrain_image = terrain_texture.get_image()
-	map_view.configure(texture, LOCATIONS, ROUTES)
+	map_view.configure(texture, locations, routes)
+	map_view.set_map_alignment_left(true)
 	map_view.location_clicked.connect(_on_location_clicked)
 	map_view.map_clicked.connect(_on_map_clicked)
-	combat_map_view.configure(texture, LOCATIONS, ROUTES)
-	map_overlay_view.configure(texture, LOCATIONS, ROUTES)
+	map_view.resized.connect(request_overworld_layout_refresh)
+	combat_map_view.configure(texture, locations, routes)
+	map_overlay_view.configure(texture, locations, routes)
+	compact_map_view.configure(texture, locations, routes)
+	compact_map_view.set_interaction_enabled(true, false)
 	show_title()
+
+func load_design_data() -> void:
+	locations = load_location_data()
+	routes = load_route_data()
+	cards = load_card_data()
+
+func load_location_data() -> Array[Dictionary]:
+	var data: Variant = load_json_file(LOCATIONS_DATA_PATH)
+	if data is Array:
+		var loaded: Array[Dictionary] = []
+		for item in data:
+			if item is Dictionary:
+				loaded.append(item)
+		if not loaded.is_empty():
+			return loaded
+	return DEFAULT_LOCATIONS.duplicate(true)
+
+func load_route_data() -> Array[Array]:
+	var data: Variant = load_json_file(ROUTES_DATA_PATH)
+	if data is Array:
+		var loaded: Array[Array] = []
+		for item in data:
+			if item is Array:
+				loaded.append(item)
+		if not loaded.is_empty():
+			return loaded
+	return DEFAULT_ROUTES.duplicate(true)
+
+func load_card_data() -> Dictionary:
+	var data: Variant = load_json_file(CARDS_DATA_PATH)
+	if data is Dictionary and not data.is_empty():
+		return data
+	return DEFAULT_CARDS.duplicate(true)
+
+func load_json_file(path: String) -> Variant:
+	if not FileAccess.file_exists(path):
+		return null
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return null
+	return JSON.parse_string(file.get_as_text())
 
 func _process(delta: float) -> void:
 	render_time_display()
@@ -255,24 +360,31 @@ func build_ui() -> void:
 	map_view.custom_minimum_size = Vector2(900, 600)
 	map_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	map_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	map_view.clip_contents = true
 	game_root.add_child(map_view)
 	build_overworld_zoom_controls()
+	build_fog_test_button()
+
+	overworld_stats_bar = HBoxContainer.new()
+	overworld_stats_bar.set_anchors_preset(Control.PRESET_TOP_LEFT)
+	overworld_stats_bar.offset_left = 18
+	overworld_stats_bar.offset_top = 54
+	overworld_stats_bar.offset_right = 260
+	overworld_stats_bar.offset_bottom = 112
+	overworld_stats_bar.add_theme_constant_override("separation", 8)
+	overworld_stats_bar.visible = false
+	add_child(overworld_stats_bar)
+	hp_label = make_stat(overworld_stats_bar, "Health", "health")
+	gold_label = make_stat(overworld_stats_bar, "Gold", "gold")
 
 	overworld_hud = VBoxContainer.new()
 	overworld_hud.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
-	overworld_hud.offset_left = 18
-	overworld_hud.offset_top = -270
-	overworld_hud.offset_right = 245
+	overworld_hud.offset_left = 20
+	overworld_hud.offset_top = -152
+	overworld_hud.offset_right = 210
 	overworld_hud.offset_bottom = -18
 	overworld_hud.add_theme_constant_override("separation", 8)
 	add_child(overworld_hud)
-
-	var stats := GridContainer.new()
-	stats.columns = 2
-	overworld_hud.add_child(stats)
-	hp_label = make_stat(stats, "Health", "health")
-	speed_label = make_stat(stats, "Speed", "speed")
-	gold_label = make_stat(stats, "Gold", "gold")
 
 	var portrait := PanelContainer.new()
 	portrait.custom_minimum_size = Vector2(170, 120)
@@ -282,6 +394,7 @@ func build_ui() -> void:
 	portrait_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	portrait.add_child(portrait_label)
 	overworld_hud.add_child(portrait)
+	build_quest_tracker()
 
 	town_panel = VBoxContainer.new()
 	event_panel = VBoxContainer.new()
@@ -301,6 +414,7 @@ func build_ui() -> void:
 	build_town_popup()
 	build_event_popup()
 	build_map_overlay()
+	build_compact_map_panel()
 	build_combat_layer()
 	build_in_game_menu()
 	build_save_prompt()
@@ -340,6 +454,89 @@ func build_overworld_zoom_controls() -> void:
 	zoom_in.pressed.connect(func() -> void: map_view.zoom_in())
 	overworld_zoom_controls.add_child(zoom_in)
 
+func build_fog_test_button() -> void:
+	fog_test_button = Button.new()
+	fog_test_button.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	fog_test_button.offset_left = 202
+	fog_test_button.offset_top = -62
+	fog_test_button.offset_right = 268
+	fog_test_button.offset_bottom = -28
+	fog_test_button.custom_minimum_size = Vector2(66, 34)
+	fog_test_button.text = "Hide Fog"
+	fog_test_button.tooltip_text = "Testing: hide or show fog of war"
+	fog_test_button.visible = false
+	fog_test_button.pressed.connect(toggle_fog_for_testing)
+	add_child(fog_test_button)
+
+func build_quest_tracker() -> void:
+	quest_tracker_panel = PanelContainer.new()
+	quest_tracker_panel.set_anchors_preset(Control.PRESET_RIGHT_WIDE)
+	quest_tracker_panel.offset_left = -560
+	quest_tracker_panel.offset_top = 70
+	quest_tracker_panel.offset_right = 0
+	quest_tracker_panel.offset_bottom = 0
+	quest_tracker_panel.visible = false
+	quest_tracker_panel.add_theme_stylebox_override("panel", make_scroll_panel_style())
+	add_child(quest_tracker_panel)
+
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 10)
+	quest_tracker_panel.add_child(stack)
+
+	var title := Label.new()
+	title.text = "Quests"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 25)
+	title.add_theme_color_override("font_color", Color(0.22, 0.13, 0.06, 1.0))
+	stack.add_child(title)
+
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	stack.add_child(scroll)
+
+	quest_tracker_list = VBoxContainer.new()
+	quest_tracker_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quest_tracker_list.add_theme_constant_override("separation", 8)
+	scroll.add_child(quest_tracker_list)
+
+func make_scroll_panel_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.74, 0.61, 0.39, 0.95)
+	style.border_color = Color(0.33, 0.20, 0.09, 0.95)
+	style.border_width_left = 3
+	style.border_width_top = 3
+	style.border_width_right = 3
+	style.border_width_bottom = 3
+	style.corner_radius_top_left = 5
+	style.corner_radius_top_right = 5
+	style.corner_radius_bottom_left = 5
+	style.corner_radius_bottom_right = 5
+	style.content_margin_left = 18
+	style.content_margin_top = 16
+	style.content_margin_right = 18
+	style.content_margin_bottom = 16
+	return style
+
+func make_top_bar_style() -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.25, 0.18, 0.11, 0.96)
+	style.border_color = Color(0.16, 0.09, 0.04, 0.95)
+	style.border_width_left = 2
+	style.border_width_top = 2
+	style.border_width_right = 2
+	style.border_width_bottom = 2
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 10
+	style.content_margin_top = 7
+	style.content_margin_right = 10
+	style.content_margin_bottom = 7
+	return style
+
 func make_full_window_style() -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.035, 0.045, 0.038, 1.0)
@@ -355,7 +552,7 @@ func build_time_display() -> void:
 	time_label.set_anchors_preset(Control.PRESET_TOP_LEFT)
 	time_label.offset_left = 18
 	time_label.offset_top = 14
-	time_label.offset_right = 210
+	time_label.offset_right = 350
 	time_label.offset_bottom = 48
 	time_label.add_theme_font_size_override("font_size", 20)
 	time_label.add_theme_color_override("font_color", Color(0.96, 0.92, 0.74, 1.0))
@@ -436,7 +633,6 @@ func build_settings_panel() -> void:
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	stack.add_theme_constant_override("separation", 16)
 	settings_panel.add_child(stack)
-	add_section_label(stack, "Settings")
 
 	var size_label := Label.new()
 	size_label.text = "Window Size"
@@ -478,7 +674,7 @@ func build_settings_panel() -> void:
 	var close := Button.new()
 	close.text = "Close"
 	style_menu_popup_button(close)
-	close.pressed.connect(func() -> void: settings_panel.visible = false)
+	close.pressed.connect(close_settings)
 	stack.add_child(close)
 
 func build_catalogue_panel() -> void:
@@ -559,14 +755,11 @@ func build_log_popup() -> void:
 	detail.add_child(log_detail_text)
 
 	var close := Button.new()
-	close.text = "X"
-	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	close.offset_left = -56
-	close.offset_top = 8
-	close.offset_right = -8
-	close.offset_bottom = 56
-	close.add_theme_font_size_override("font_size", 24)
-	close.pressed.connect(func() -> void: log_popup.visible = false)
+	style_overlay_close_button(close)
+	close.pressed.connect(func() -> void:
+		log_popup.visible = false
+		update_top_right_controls()
+	)
 	content.add_child(close)
 
 func build_inventory_popup() -> void:
@@ -619,14 +812,11 @@ func build_inventory_popup() -> void:
 	inventory_scroll.add_child(deck_grid)
 
 	var close := Button.new()
-	close.text = "X"
-	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	close.offset_left = -56
-	close.offset_top = 8
-	close.offset_right = -8
-	close.offset_bottom = 56
-	close.add_theme_font_size_override("font_size", 24)
-	close.pressed.connect(func() -> void: inventory_popup.visible = false)
+	style_overlay_close_button(close)
+	close.pressed.connect(func() -> void:
+		inventory_popup.visible = false
+		update_top_right_controls()
+	)
 	content.add_child(close)
 
 	inventory_drag_preview = PanelContainer.new()
@@ -657,33 +847,27 @@ func build_character_info_popup() -> void:
 	content.add_child(character_info_box)
 
 	var close := Button.new()
-	close.text = "X"
-	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	close.offset_left = -56
-	close.offset_top = 8
-	close.offset_right = -8
-	close.offset_bottom = 56
-	close.add_theme_font_size_override("font_size", 24)
+	style_overlay_close_button(close)
 	close.pressed.connect(func() -> void: character_info_popup.visible = false)
 	content.add_child(close)
 
 func build_town_popup() -> void:
-	town_popup = PanelContainer.new()
+	town_popup = Control.new()
 	town_popup.set_anchors_preset(Control.PRESET_FULL_RECT)
 	town_popup.visible = false
 	add_child(town_popup)
 
-	var shade := ColorRect.new()
-	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-	shade.color = Color(0.0, 0.0, 0.0, 0.88)
-	town_popup.add_child(shade)
+	var backdrop := ColorRect.new()
+	backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	backdrop.color = Color(0.035, 0.045, 0.038, 1.0)
+	town_popup.add_child(backdrop)
 
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.offset_left = -390
-	panel.offset_top = -300
-	panel.offset_right = 390
-	panel.offset_bottom = 300
+	panel.offset_left = -460
+	panel.offset_top = -310
+	panel.offset_right = 460
+	panel.offset_bottom = 310
 	town_popup.add_child(panel)
 
 	var content := Control.new()
@@ -693,11 +877,11 @@ func build_town_popup() -> void:
 
 	var stack := VBoxContainer.new()
 	stack.set_anchors_preset(Control.PRESET_FULL_RECT)
-	stack.offset_left = 22
-	stack.offset_top = 22
-	stack.offset_right = -72
-	stack.offset_bottom = -22
-	stack.add_theme_constant_override("separation", 12)
+	stack.offset_left = 28
+	stack.offset_top = 28
+	stack.offset_right = -28
+	stack.offset_bottom = -28
+	stack.add_theme_constant_override("separation", 14)
 	content.add_child(stack)
 
 	town_title_label = Label.new()
@@ -721,23 +905,6 @@ func build_town_popup() -> void:
 	town_place_box = VBoxContainer.new()
 	town_place_box.add_theme_constant_override("separation", 8)
 	stack.add_child(town_place_box)
-
-	var close := Button.new()
-	close.text = "X"
-	close.name = "TownCloseButton"
-	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	close.offset_left = -64
-	close.offset_top = 8
-	close.offset_right = -8
-	close.offset_bottom = 64
-	close.custom_minimum_size = Vector2(56, 56)
-	close.size = Vector2(56, 56)
-	close.mouse_filter = Control.MOUSE_FILTER_STOP
-	close.focus_mode = Control.FOCUS_NONE
-	close.add_theme_font_size_override("font_size", 24)
-	close.pressed.connect(leave_town)
-	panel.add_child(close)
-	close.move_to_front()
 
 func build_event_popup() -> void:
 	event_popup = PanelContainer.new()
@@ -813,37 +980,94 @@ func build_map_overlay() -> void:
 	close.pressed.connect(func() -> void: map_overlay.visible = false)
 	map_overlay.add_child(close)
 
+func build_compact_map_panel() -> void:
+	compact_map_panel = PanelContainer.new()
+	compact_map_panel.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	compact_map_panel.offset_left = -270
+	compact_map_panel.offset_top = 72
+	compact_map_panel.offset_right = -6
+	compact_map_panel.offset_bottom = 372
+	compact_map_panel.clip_contents = true
+	compact_map_panel.visible = false
+	add_child(compact_map_panel)
+
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 6)
+	compact_map_panel.add_child(stack)
+
+	compact_map_view = preload("res://scripts/OverworldView.gd").new()
+	compact_map_view.custom_minimum_size = Vector2(246, 246)
+	compact_map_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	compact_map_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	compact_map_view.clip_contents = true
+	stack.add_child(compact_map_view)
+
+	var zoom_controls := HBoxContainer.new()
+	zoom_controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	zoom_controls.add_theme_constant_override("separation", 6)
+	stack.add_child(zoom_controls)
+
+	var zoom_out := Button.new()
+	zoom_out.text = "-"
+	zoom_out.tooltip_text = "Zoom out"
+	zoom_out.custom_minimum_size = Vector2(46, 36)
+	zoom_out.pressed.connect(func() -> void: compact_map_view.zoom_out())
+	zoom_controls.add_child(zoom_out)
+
+	var reset := Button.new()
+	reset.text = "1x"
+	reset.tooltip_text = "Reset zoom"
+	reset.custom_minimum_size = Vector2(54, 36)
+	reset.pressed.connect(func() -> void: compact_map_view.reset_zoom())
+	zoom_controls.add_child(reset)
+
+	var zoom_in := Button.new()
+	zoom_in.text = "+"
+	zoom_in.tooltip_text = "Zoom in"
+	zoom_in.custom_minimum_size = Vector2(46, 36)
+	zoom_in.pressed.connect(func() -> void: compact_map_view.zoom_in())
+	zoom_controls.add_child(zoom_in)
+
 func build_in_game_menu() -> void:
-	top_right_controls = HBoxContainer.new()
+	top_right_controls = PanelContainer.new()
 	top_right_controls.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	top_right_controls.offset_left = -460
-	top_right_controls.offset_top = 16
+	top_right_controls.offset_left = -540
+	top_right_controls.offset_top = 10
 	top_right_controls.offset_right = -16
-	top_right_controls.offset_bottom = 58
-	top_right_controls.add_theme_constant_override("separation", 8)
+	top_right_controls.offset_bottom = 66
+	top_right_controls.add_theme_stylebox_override("panel", make_top_bar_style())
 	top_right_controls.visible = false
 	add_child(top_right_controls)
+
+	top_right_button_bar = HBoxContainer.new()
+	top_right_button_bar.add_theme_constant_override("separation", 8)
+	top_right_controls.add_child(top_right_button_bar)
 
 	in_game_menu_button = Button.new()
 	in_game_menu_button.text = "Menu"
 	in_game_menu_button.pressed.connect(show_in_game_menu)
-	top_right_controls.add_child(in_game_menu_button)
+	top_right_button_bar.add_child(in_game_menu_button)
 
-	var log_button := Button.new()
-	log_button.text = "Chronicle"
-	log_button.pressed.connect(show_log_popup)
-	top_right_controls.add_child(log_button)
+	chronicle_button = Button.new()
+	chronicle_button.text = "Chronicle"
+	chronicle_button.pressed.connect(show_log_popup)
+	top_right_button_bar.add_child(chronicle_button)
 
-	var inventory_button := Button.new()
+	inventory_button = Button.new()
 	inventory_button.text = "Inventory"
 	inventory_button.pressed.connect(show_inventory_popup)
-	top_right_controls.add_child(inventory_button)
+	top_right_button_bar.add_child(inventory_button)
+
+	map_button = Button.new()
+	map_button.text = "Map"
+	map_button.pressed.connect(toggle_compact_map)
+	top_right_button_bar.add_child(map_button)
 
 	enter_town_button = Button.new()
 	enter_town_button.text = "Enter Town"
 	enter_town_button.visible = false
 	enter_town_button.pressed.connect(enter_nearby_town)
-	top_right_controls.add_child(enter_town_button)
+	top_right_button_bar.add_child(enter_town_button)
 
 	in_game_menu_popup = PanelContainer.new()
 	in_game_menu_popup.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -871,8 +1095,9 @@ func build_in_game_menu() -> void:
 	settings.text = "Settings"
 	style_menu_popup_button(settings)
 	settings.pressed.connect(func() -> void:
+		var return_view := in_game_menu_return_view
 		in_game_menu_popup.visible = false
-		show_settings()
+		show_settings(return_view)
 	)
 	stack.add_child(settings)
 
@@ -894,13 +1119,26 @@ func build_in_game_menu() -> void:
 	var close := Button.new()
 	close.text = "Close"
 	style_menu_popup_button(close)
-	close.pressed.connect(func() -> void: in_game_menu_popup.visible = false)
+	close.pressed.connect(func() -> void:
+		in_game_menu_popup.visible = false
+		update_top_right_controls()
+	)
 	stack.add_child(close)
 
 func style_menu_popup_button(button: Button) -> void:
 	button.custom_minimum_size = Vector2(260, 58)
 	button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	button.add_theme_font_size_override("font_size", 22)
+
+func style_overlay_close_button(button: Button) -> void:
+	button.text = "X"
+	button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	button.offset_left = -16.0 - OVERLAY_CLOSE_BUTTON_SIZE
+	button.offset_top = OVERLAY_CLOSE_BUTTON_TOP
+	button.offset_right = -16.0
+	button.offset_bottom = OVERLAY_CLOSE_BUTTON_TOP + OVERLAY_CLOSE_BUTTON_SIZE
+	button.custom_minimum_size = Vector2(OVERLAY_CLOSE_BUTTON_SIZE, OVERLAY_CLOSE_BUTTON_SIZE)
+	button.add_theme_font_size_override("font_size", 28)
 
 func build_save_prompt() -> void:
 	save_prompt_popup = PanelContainer.new()
@@ -941,7 +1179,10 @@ func build_save_prompt() -> void:
 	var cancel := Button.new()
 	cancel.text = "Cancel"
 	style_menu_popup_button(cancel)
-	cancel.pressed.connect(func() -> void: save_prompt_popup.visible = false)
+	cancel.pressed.connect(func() -> void:
+		save_prompt_popup.visible = false
+		update_top_right_controls()
+	)
 	stack.add_child(cancel)
 
 func build_travel_prompt() -> void:
@@ -1368,6 +1609,7 @@ func start_run() -> void:
 	run += 1
 	calendar_year = 0
 	calendar_day = 0
+	calendar_hour = 0
 	travel_day_progress = 0.0
 	player = {
 		"name": "Jiali",
@@ -1383,15 +1625,17 @@ func start_run() -> void:
 		"deck": deck_from_equipment(STARTER_EQUIPMENT)
 	}
 	current_location = get_location("glory")
-	player_pos = Vector2(current_location.x, current_location.y)
+	player_pos = Vector2(float(current_location.x), float(current_location.y) + 0.032)
 	discovered = {}
 	explored = []
 	resolved_events = {}
-	mode = "town"
+	fog_hidden_for_testing = false
+	map_view.set_fog_hidden(false)
+	mode = "overworld"
 	log_entries = []
 	discover_location("glory")
 	reveal_around_player()
-	add_log("Run begins in Glory, a small village beside old ruins.")
+	add_log("Run begins just south of Glory, a small village beside old ruins.")
 	game_root.visible = true
 	title_layer.visible = false
 	settings_panel.visible = false
@@ -1403,18 +1647,22 @@ func start_run() -> void:
 	travel_prompt_popup.visible = false
 	travel_message_popup.visible = false
 	map_overlay.visible = false
+	compact_map_panel.visible = false
 	combat_layer.visible = false
 	top_right_controls.visible = true
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
 	render_all()
 	focus_overworld_on_player()
+	request_overworld_layout_refresh()
 	save_run()
 
 func continue_run() -> void:
 	if saved_run.is_empty():
 		return
 	load_run(saved_run)
+	fog_hidden_for_testing = false
+	map_view.set_fog_hidden(false)
 	game_root.visible = true
 	title_layer.visible = false
 	settings_panel.visible = false
@@ -1426,12 +1674,14 @@ func continue_run() -> void:
 	travel_prompt_popup.visible = false
 	travel_message_popup.visible = false
 	map_overlay.visible = false
+	compact_map_panel.visible = false
 	combat_layer.visible = mode == "combat"
 	top_right_controls.visible = true
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
 	render_all()
 	focus_overworld_on_player()
+	request_overworld_layout_refresh()
 
 func return_to_title_with_save() -> void:
 	save_run()
@@ -1440,13 +1690,14 @@ func return_to_title_with_save() -> void:
 func show_in_game_menu() -> void:
 	if title_layer.visible:
 		return
+	in_game_menu_return_view = current_run_view_key()
 	in_game_menu_popup.visible = true
 	in_game_menu_popup.move_to_front()
 	settings_panel.visible = false
 	catalogue_panel.visible = false
-	log_popup.visible = false
 	character_info_popup.visible = false
 	save_prompt_popup.visible = false
+	update_top_right_controls()
 
 func show_save_prompt(action: String) -> void:
 	save_prompt_action = action
@@ -1455,6 +1706,7 @@ func show_save_prompt(action: String) -> void:
 	var label := save_prompt_popup.find_child("PromptLabel", true, false) as Label
 	if label != null:
 		label.text = "Save this run before %s?" % ("quitting" if action == "quit" else "returning to the main menu")
+	update_top_right_controls()
 
 func complete_save_prompt(should_save: bool) -> void:
 	if should_save:
@@ -1479,10 +1731,14 @@ func show_title() -> void:
 	travel_prompt_popup.visible = false
 	travel_message_popup.visible = false
 	map_overlay.visible = false
+	compact_map_panel.visible = false
 	event_popup.visible = false
 	combat_layer.visible = false
 	top_right_controls.visible = false
 	overworld_zoom_controls.visible = false
+	fog_test_button.visible = false
+	fog_hidden_for_testing = false
+	map_view.set_fog_hidden(false)
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
 	title_continue_button.visible = not saved_run.is_empty()
@@ -1496,6 +1752,7 @@ func save_run() -> void:
 		"player": player.duplicate(true),
 		"calendar_year": calendar_year,
 		"calendar_day": calendar_day,
+		"calendar_hour": calendar_hour,
 		"travel_day_progress": travel_day_progress,
 		"player_pos": player_pos,
 		"current_location_id": str(current_location.id),
@@ -1512,6 +1769,7 @@ func load_run(data: Dictionary) -> void:
 	player = data.player.duplicate(true)
 	calendar_year = int(data.get("calendar_year", 0))
 	calendar_day = int(data.get("calendar_day", 0))
+	calendar_hour = int(data.get("calendar_hour", 0))
 	travel_day_progress = float(data.get("travel_day_progress", 0.0))
 	normalize_equipment()
 	if not player.has("inventory"):
@@ -1890,8 +2148,17 @@ func advance_time_for_overworld_distance(distance: float) -> void:
 	if distance <= 0.0:
 		return
 	travel_day_progress += distance
-	while travel_day_progress >= OVERWORLD_SQUARE_SIZE:
-		travel_day_progress -= OVERWORLD_SQUARE_SIZE
+	var hour_distance := OVERWORLD_SQUARE_SIZE / float(HOURS_PER_DAY)
+	while travel_day_progress >= hour_distance:
+		travel_day_progress -= hour_distance
+		advance_hours(1)
+
+func advance_hours(hours: int) -> void:
+	if hours <= 0:
+		return
+	calendar_hour += hours
+	while calendar_hour >= HOURS_PER_DAY:
+		calendar_hour -= HOURS_PER_DAY
 		advance_days(1)
 
 func advance_days(days: int) -> void:
@@ -1927,7 +2194,30 @@ func can_travel_to(_destination: Vector2) -> bool:
 
 func can_stand_at(map_position: Vector2) -> bool:
 	var terrain := terrain_at(map_position)
-	return terrain != "sea"
+	if terrain == "sea":
+		return false
+	if terrain == "mountain" and is_mountain_core(map_position):
+		return false
+	return true
+
+func is_mountain_core(map_position: Vector2) -> bool:
+	var mountain_neighbors := 0
+	var sample_offsets: Array[Vector2] = [
+		Vector2(1.0, 0.0),
+		Vector2(-1.0, 0.0),
+		Vector2(0.0, 1.0),
+		Vector2(0.0, -1.0),
+		Vector2(1.0, 1.0).normalized(),
+		Vector2(1.0, -1.0).normalized(),
+		Vector2(-1.0, 1.0).normalized(),
+		Vector2(-1.0, -1.0).normalized()
+	]
+	for offset in sample_offsets:
+		var sample_position := map_position + offset * MOUNTAIN_CORE_SAMPLE_RADIUS
+		sample_position = Vector2(clampf(sample_position.x, 0.0, 1.0), clampf(sample_position.y, 0.0, 1.0))
+		if terrain_at(sample_position) == "mountain":
+			mountain_neighbors += 1
+	return mountain_neighbors >= MOUNTAIN_CORE_NEIGHBOR_THRESHOLD
 
 func terrain_at(map_position: Vector2) -> String:
 	if terrain_image == null:
@@ -2098,12 +2388,10 @@ func simplify_travel_path(points: Array[Vector2]) -> Array[Vector2]:
 func reveal_around_player() -> void:
 	if explored.is_empty() or explored[-1].pos.distance_to(player_pos) > 0.018:
 		explored.append({"pos": player_pos, "radius": FOG_RADIUS})
-	for location in LOCATIONS:
+	for location in locations:
 		var loc_pos: Vector2 = Vector2(float(location.x), float(location.y))
 		if player_pos.distance_to(loc_pos) < 0.075 and not discovered.has(location.id):
 			discover_location(location.id)
-			if str(location.type) != "town":
-				add_log("%s appears through the fog." % location.name, str(location.name))
 
 func discover_location(location_id: String) -> void:
 	var location := get_location(location_id)
@@ -2116,7 +2404,7 @@ func discover_location(location_id: String) -> void:
 		explored.append({"pos": Vector2(location.x, location.y), "radius": FOG_RADIUS})
 
 func check_arrival() -> void:
-	for location in LOCATIONS:
+	for location in locations:
 		if discovered.has(location.id) and player_pos.distance_to(Vector2(location.x, location.y)) < 0.026 and location.id != current_location.id:
 			if str(location.type) == "town":
 				current_location = location
@@ -2142,7 +2430,7 @@ func enter_location() -> void:
 	render_all()
 
 func nearby_town() -> Dictionary:
-	for location in LOCATIONS:
+	for location in locations:
 		if str(location.type) != "town" or not discovered.has(location.id):
 			continue
 		if player_pos.distance_to(Vector2(float(location.x), float(location.y))) <= TOWN_ENTRY_RADIUS:
@@ -2158,7 +2446,7 @@ func enter_nearby_town() -> void:
 	enter_location()
 
 func scout() -> void:
-	for location in LOCATIONS:
+	for location in locations:
 		if not discovered.has(location.id):
 			discover_location(location.id)
 			add_log("A rumor reveals the way to %s." % location.name)
@@ -2167,17 +2455,122 @@ func scout() -> void:
 	add_log("No hidden routes remain in this prototype.")
 	render_all()
 
+func toggle_fog_for_testing() -> void:
+	fog_hidden_for_testing = not fog_hidden_for_testing
+	map_view.set_fog_hidden(fog_hidden_for_testing)
+	render_all()
+
+func render_quest_tracker() -> void:
+	if quest_tracker_list == null:
+		return
+	clear_children(quest_tracker_list)
+	add_quest_section("Main Quest", quests_for("main", false))
+	add_quest_section("Side Quests", quests_for("side", false))
+	add_quest_section("Finished", completed_quests(), true)
+
+func quests_for(kind: String, completed: bool) -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	for quest in QUESTS:
+		if str(quest.kind) == kind and bool(quest.completed) == completed:
+			results.append(quest)
+	return results
+
+func completed_quests() -> Array[Dictionary]:
+	var results: Array[Dictionary] = []
+	for quest in QUESTS:
+		if bool(quest.completed):
+			results.append(quest)
+	return results
+
+func add_quest_section(title: String, quests: Array[Dictionary], completed_section: bool = false) -> void:
+	if quests.is_empty():
+		return
+	var label := Label.new()
+	label.text = title
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", Color(0.24, 0.14, 0.06, 1.0) if not completed_section else Color(0.34, 0.31, 0.27, 0.85))
+	quest_tracker_list.add_child(label)
+	for quest in quests:
+		quest_tracker_list.add_child(make_quest_row(quest))
+
+func make_quest_row(quest: Dictionary) -> Control:
+	var completed := bool(quest.completed)
+	var row_panel := PanelContainer.new()
+	row_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.93, 0.80, 0.55, 0.78) if not completed else Color(0.42, 0.39, 0.34, 0.42)
+	style.border_color = Color(0.35, 0.22, 0.10, 0.55) if not completed else Color(0.25, 0.24, 0.22, 0.45)
+	style.border_width_left = 1
+	style.border_width_top = 1
+	style.border_width_right = 1
+	style.border_width_bottom = 1
+	style.corner_radius_top_left = 4
+	style.corner_radius_top_right = 4
+	style.corner_radius_bottom_left = 4
+	style.corner_radius_bottom_right = 4
+	style.content_margin_left = 8
+	style.content_margin_top = 7
+	style.content_margin_right = 8
+	style.content_margin_bottom = 7
+	row_panel.add_theme_stylebox_override("panel", style)
+
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 5)
+	row_panel.add_child(stack)
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 6)
+	stack.add_child(header)
+
+	var quest_id := str(quest.id)
+	if not collapsed_quests.has(quest_id):
+		collapsed_quests[quest_id] = true
+	var collapsed := bool(collapsed_quests[quest_id])
+	var toggle := Button.new()
+	toggle.text = "+" if collapsed else "-"
+	toggle.custom_minimum_size = Vector2(28, 28)
+	toggle.disabled = false
+	if completed:
+		toggle.modulate = Color(0.58, 0.55, 0.49, 0.9)
+	toggle.pressed.connect(func() -> void:
+		collapsed_quests[quest_id] = not bool(collapsed_quests[quest_id])
+		render_quest_tracker()
+	)
+	header.add_child(toggle)
+
+	var title := Label.new()
+	title.text = str(quest.title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title.add_theme_font_size_override("font_size", 16)
+	title.add_theme_color_override("font_color", Color(0.18, 0.10, 0.04, 1.0) if not completed else Color(0.32, 0.30, 0.27, 0.75))
+	header.add_child(title)
+
+	if not collapsed:
+		var summary := Label.new()
+		summary.text = "%s\n\n%s" % [str(quest.summary), str(quest.objective)]
+		summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		summary.add_theme_font_size_override("font_size", 14)
+		summary.add_theme_color_override("font_color", Color(0.23, 0.13, 0.06, 0.95) if not completed else Color(0.32, 0.30, 0.27, 0.72))
+		stack.add_child(summary)
+	return row_panel
+
 func render_all() -> void:
 	var inventory_overlay_active: bool = inventory_popup.visible and mode != "combat"
+	position_right_side_panels()
 	render_time_display()
 	run_label.text = "Run %s - %s" % [run, player.name]
 	hp_label.text = "Health\n%s/%s" % [player.hp, player.max_hp]
-	speed_label.text = "Speed\n%s" % player.speed
 	deck_label.text = "Deck\n%s" % player.deck.size()
 	gold_label.text = "Gold\n%s" % player.gold
 	mode_label.text = "Mode\n%s" % mode
-	overworld_hud.visible = not inventory_overlay_active and mode != "combat" and not title_layer.visible
+	var clean_overworld := mode == "overworld" and not title_layer.visible and not inventory_overlay_active and not town_popup.visible and not event_popup.visible and not combat_layer.visible and not in_game_menu_popup.visible and not save_prompt_popup.visible and not settings_panel.visible and not catalogue_panel.visible and not log_popup.visible and not inventory_popup.visible and not map_overlay.visible
+	overworld_hud.visible = clean_overworld
+	overworld_stats_bar.visible = clean_overworld
+	quest_tracker_panel.visible = clean_overworld
 	overworld_zoom_controls.visible = mode == "overworld" and not title_layer.visible and not inventory_overlay_active and not town_popup.visible and not event_popup.visible and not combat_layer.visible
+	fog_test_button.visible = overworld_zoom_controls.visible
+	fog_test_button.text = "Show Fog" if fog_hidden_for_testing else "Hide Fog"
 	var town_in_range := nearby_town()
 	enter_town_button.visible = mode == "overworld" and not town_in_range.is_empty() and not title_layer.visible
 	if enter_town_button.visible:
@@ -2185,8 +2578,12 @@ func render_all() -> void:
 	location_name.text = current_location.name
 	location_lore.text = current_location.lore
 	map_view.set_world_state(player_pos, discovered, explored, current_location.id)
-	combat_map_view.set_world_state(player_pos, discovered, explored, current_location.id)
-	map_overlay_view.set_world_state(player_pos, discovered, explored, current_location.id)
+	if combat_layer.visible:
+		combat_map_view.set_world_state(player_pos, discovered, explored, current_location.id)
+	if map_overlay.visible:
+		map_overlay_view.set_world_state(player_pos, discovered, explored, current_location.id)
+	if compact_map_panel.visible:
+		compact_map_view.set_world_state(player_pos, discovered, explored, current_location.id)
 	render_inventory()
 	render_deck()
 	render_town()
@@ -2194,13 +2591,87 @@ func render_all() -> void:
 	render_combat()
 	render_fullscreen_combat()
 	render_log()
+	render_quest_tracker()
+	update_top_right_controls()
+
+func position_right_side_panels() -> void:
+	if map_view == null or quest_tracker_panel == null or top_right_controls == null:
+		return
+	var map_rect: Rect2 = map_view.get_base_map_rect()
+	var left_edge := clampf(map_rect.end.x, size.x * 0.52, size.x - 360.0)
+	var offset_left := left_edge - size.x
+	quest_tracker_panel.offset_left = offset_left
+	quest_tracker_panel.offset_right = 0
+
+func request_overworld_layout_refresh() -> void:
+	if not is_inside_tree():
+		return
+	call_deferred("refresh_overworld_layout")
+
+func refresh_overworld_layout() -> void:
+	if map_view == null:
+		return
+	position_right_side_panels()
+	resize_top_right_controls()
+	if quest_tracker_panel != null:
+		quest_tracker_panel.queue_sort()
+
+func can_show_compact_map_button() -> bool:
+	if title_layer.visible:
+		return false
+	if mode != "overworld":
+		return true
+	return in_game_menu_popup.visible or save_prompt_popup.visible or settings_panel.visible or catalogue_panel.visible or log_popup.visible or inventory_popup.visible or character_info_popup.visible
+
+func update_top_right_controls() -> void:
+	if top_right_controls == null:
+		return
+	top_right_controls.visible = not title_layer.visible
+	in_game_menu_button.visible = not in_game_menu_popup.visible
+	chronicle_button.visible = not log_popup.visible
+	inventory_button.visible = not inventory_popup.visible
+	var compact_map_available := can_show_compact_map_button()
+	if map_button != null:
+		map_button.visible = compact_map_available
+	if compact_map_panel.visible and not compact_map_available:
+		compact_map_panel.visible = false
+	resize_top_right_controls()
+	if top_right_controls.visible:
+		raise_active_overlay()
+		if compact_map_panel.visible:
+			compact_map_panel.move_to_front()
+		top_right_controls.move_to_front()
+
+func raise_active_overlay() -> void:
+	if save_prompt_popup.visible:
+		save_prompt_popup.move_to_front()
+	elif in_game_menu_popup.visible:
+		in_game_menu_popup.move_to_front()
+	elif settings_panel.visible:
+		settings_panel.move_to_front()
+	elif inventory_popup.visible:
+		inventory_popup.move_to_front()
+	elif log_popup.visible:
+		log_popup.move_to_front()
+	elif catalogue_panel.visible:
+		catalogue_panel.move_to_front()
+	elif character_info_popup.visible:
+		character_info_popup.move_to_front()
+
+func resize_top_right_controls() -> void:
+	if top_right_controls == null or top_right_button_bar == null:
+		return
+	var button_width := top_right_button_bar.get_combined_minimum_size().x
+	var bar_width := maxf(86.0, button_width + 20.0)
+	top_right_controls.offset_left = -bar_width - 16.0
+	top_right_controls.offset_right = -16.0
 
 func render_time_display() -> void:
 	if time_label == null:
 		return
-	time_label.text = "Year %s, Day %s" % [calendar_year, calendar_day]
+	time_label.text = "Year %s, Day %s, Hour %s/%s" % [calendar_year, calendar_day, calendar_hour + 1, HOURS_PER_DAY]
 	var gameplay_mode := mode == "overworld" or mode == "town" or mode == "event" or mode == "combat"
-	var blocking_popup_open := in_game_menu_popup.visible or save_prompt_popup.visible or travel_prompt_popup.visible or travel_message_popup.visible or settings_panel.visible or catalogue_panel.visible or log_popup.visible or inventory_popup.visible or map_overlay.visible or character_info_popup.visible
+	var blocking_popup_open := in_game_menu_popup.visible or save_prompt_popup.visible or travel_message_popup.visible or settings_panel.visible or catalogue_panel.visible or log_popup.visible or inventory_popup.visible or map_overlay.visible or character_info_popup.visible
 	time_label.visible = gameplay_mode and not title_layer.visible and not blocking_popup_open
 	time_label.move_to_front()
 
@@ -2312,7 +2783,6 @@ func make_equipment_slot_button(slot: String) -> Button:
 	if item_name != "":
 		button.icon = load(str(ICONS[equipment_icon_id(item_name)]))
 	button.expand_icon = true
-	button.tooltip_text = equipment_tooltip(item_name, slot)
 	if item_name == "":
 		var style := empty_slot_style()
 		button.add_theme_stylebox_override("normal", style)
@@ -2342,7 +2812,6 @@ func make_core_slot_button(index: int) -> Button:
 	if core_name != "":
 		button.icon = load(str(ICONS["core"]))
 	button.expand_icon = true
-	button.tooltip_text = core_tooltip(core_name)
 	if core_name == "":
 		var style := empty_slot_style()
 		button.add_theme_stylebox_override("normal", style)
@@ -2393,7 +2862,6 @@ func make_inventory_slot_button(item_name: String) -> Button:
 		button.add_theme_stylebox_override("hover", style)
 		button.add_theme_stylebox_override("pressed", style)
 	button.expand_icon = true
-	button.tooltip_text = inventory_item_tooltip(item_name, "")
 	button.mouse_entered.connect(func() -> void:
 		if item_name != "":
 			show_inventory_item_info(item_name, "")
@@ -2443,10 +2911,11 @@ func equipment_tooltip(item_name: String, slot: String) -> String:
 	var abilities: Array = item.get("abilities", [])
 	for ability in abilities:
 		lines.append(str(ability))
-	var cards: Array = item.get("cards", [])
+	var item_cards: Array = item.get("cards", [])
 	var card_names: Array[String] = []
-	for card_id in cards:
-		card_names.append(str(CARDS[str(card_id)].name))
+	for card_id in item_cards:
+		var card: Dictionary = cards.get(str(card_id), {})
+		card_names.append(str(card.get("name", card_id)))
 	lines.append("Cards: %s" % (", ".join(card_names) if not card_names.is_empty() else "None"))
 	return "\n".join(lines)
 
@@ -2460,13 +2929,15 @@ func show_inventory_item_info(item_name: String, slot: String) -> void:
 	label.text = equipment_tooltip(item_name, slot)
 	panel.add_child(label)
 	if item_name != "" and EQUIPMENT_DATA.has(item_name):
-		var cards: Array = EQUIPMENT_DATA[item_name].get("cards", [])
+		var item_cards: Array = EQUIPMENT_DATA[item_name].get("cards", [])
 		var row := GridContainer.new()
 		row.columns = 3
 		row.add_theme_constant_override("h_separation", 6)
 		row.add_theme_constant_override("v_separation", 6)
-		for card_id in cards.slice(0, 3):
-			var card: Dictionary = CARDS[str(card_id)]
+		for card_id in item_cards.slice(0, 3):
+			var card: Dictionary = cards.get(str(card_id), {})
+			if card.is_empty():
+				continue
 			var card_view = preload("res://scripts/CardView.gd").new()
 			card_view.setup(card)
 			card_view.draggable = false
@@ -2487,13 +2958,11 @@ func render_deck() -> void:
 		return
 	deck_grid.columns = max(1, mini(10, player.deck.size()))
 	for card_id in player.deck:
-		var card_data: Dictionary = CARDS[card_id]
+		var card_data: Dictionary = cards[card_id]
 		var card_view = preload("res://scripts/CardView.gd").new()
 		card_view.setup(card_data)
 		card_view.draggable = false
 		card_view.scale = Vector2(0.72, 0.72)
-		card_view.hover_card.connect(show_card_preview)
-		card_view.unhover_card.connect(hide_card_preview)
 		deck_grid.add_child(card_view)
 
 func render_combat_deck_popup() -> void:
@@ -2513,8 +2982,6 @@ func render_combat_deck_popup() -> void:
 		card_view.setup(card_data)
 		card_view.draggable = false
 		card_view.scale = Vector2(0.95, 0.95)
-		card_view.hover_card.connect(show_card_preview)
-		card_view.unhover_card.connect(hide_card_preview)
 		combat_deck_grid.add_child(card_view)
 
 func toggle_combat_deck_popup() -> void:
@@ -2595,8 +3062,6 @@ func show_combat_character_info(unit_id: String) -> void:
 			card_view.setup(card)
 			card_view.draggable = false
 			card_view.scale = Vector2(0.66, 0.66)
-			card_view.hover_card.connect(show_card_preview)
-			card_view.unhover_card.connect(hide_card_preview)
 			card_grid.add_child(card_view)
 	else:
 		var unknown := Label.new()
@@ -2868,8 +3333,6 @@ func render_combat_hand() -> void:
 		var card_view = preload("res://scripts/CardView.gd").new()
 		card_view.name = "Card_%s" % str(card.instance_id)
 		card_view.setup(card)
-		card_view.hover_card.connect(show_card_preview)
-		card_view.unhover_card.connect(hide_card_preview)
 		card_view.drag_finished.connect(_on_card_drag_finished)
 		combat_hand_bar.add_child(card_view)
 
@@ -2905,6 +3368,7 @@ func render_energy_hole() -> void:
 	energy_hole_label.text = "Energy\n%s more\nDrop card here" % combat.energy_needed
 
 func use_town_place(place: String) -> void:
+	advance_hours(1)
 	if place.contains("Inn") and player.gold >= 8:
 		player.gold -= 8
 		player.hp = player.max_hp
@@ -2937,6 +3401,7 @@ func equip_first_empty_slot() -> void:
 	add_log("Your equipment changes, so your deck changes with it.")
 
 func resolve_event_without_combat() -> void:
+	advance_hours(1)
 	player.gold += 8
 	resolved_events[current_location.id] = true
 	mode = "overworld"
@@ -2947,6 +3412,7 @@ func resolve_event_without_combat() -> void:
 
 func start_combat(enemy_name: String, _difficulty: int) -> void:
 	clear_overworld_movement_queue()
+	advance_hours(1)
 	learn_character_info(enemy_name, "hp")
 	var enemy_hand_size := clampi(_difficulty, 1, 3)
 	var player_deck: Array[Dictionary] = make_combat_deck(player.deck)
@@ -3659,13 +4125,13 @@ func deck_from_equipment(equipment: Dictionary) -> Array[String]:
 func draw_preview_hand(deck: Array[String], hand_size: int) -> Array[String]:
 	var hand: Array[String] = []
 	for index in min(hand_size, deck.size()):
-		hand.append(CARDS[deck[index]].name)
+		hand.append(cards[deck[index]].name)
 	return hand
 
 func make_combat_deck(deck_ids: Array[String]) -> Array[Dictionary]:
 	var deck: Array[Dictionary] = []
 	for card_id in deck_ids:
-		var card: Dictionary = CARDS[card_id].duplicate(true)
+		var card: Dictionary = cards[card_id].duplicate(true)
 		card["id"] = card_id
 		card["instance_id"] = "%s-%s" % [card_id, deck.size()]
 		card["source_icon"] = source_icon_for_card(card_id)
@@ -3764,15 +4230,65 @@ func show_travel_message(message: String) -> void:
 	travel_message_popup.visible = true
 	travel_message_popup.move_to_front()
 
-func show_settings() -> void:
+func show_settings(return_view: String = "") -> void:
+	settings_return_view = return_view
 	settings_panel.visible = true
 	settings_panel.move_to_front()
 	catalogue_panel.visible = false
-	log_popup.visible = false
-	inventory_popup.visible = false
-	town_popup.visible = false
+	if settings_return_view != "chronicle":
+		log_popup.visible = false
+	if settings_return_view != "inventory":
+		inventory_popup.visible = false
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
+	update_top_right_controls()
+
+func close_settings() -> void:
+	settings_panel.visible = false
+	restore_settings_return_view()
+	settings_return_view = ""
+	update_top_right_controls()
+
+func current_run_view_key() -> String:
+	if inventory_popup.visible:
+		return "inventory"
+	if log_popup.visible:
+		return "chronicle"
+	if town_popup.visible:
+		return "town"
+	if event_popup.visible:
+		return "event"
+	if catalogue_panel.visible:
+		return "catalogue"
+	if mode == "combat" and combat_layer.visible:
+		return "combat"
+	return "overworld"
+
+func restore_settings_return_view() -> void:
+	match settings_return_view:
+		"inventory":
+			position_inventory_popup()
+			render_inventory()
+			render_deck()
+			inventory_popup.visible = true
+			inventory_popup.move_to_front()
+		"chronicle":
+			render_log()
+			log_popup.visible = true
+			log_popup.move_to_front()
+		"town":
+			town_popup.visible = true
+			town_popup.move_to_front()
+		"event":
+			event_popup.visible = true
+			event_popup.move_to_front()
+		"catalogue":
+			render_catalogue()
+			catalogue_panel.visible = true
+			catalogue_panel.move_to_front()
+		"combat":
+			combat_layer.visible = true
+			combat_layer.move_to_front()
 
 func set_fullscreen(enabled: bool) -> void:
 	if enabled:
@@ -3792,10 +4308,10 @@ func show_catalogue() -> void:
 	catalogue_panel.move_to_front()
 	log_popup.visible = false
 	inventory_popup.visible = false
-	town_popup.visible = false
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
 	render_catalogue()
+	update_top_right_controls()
 
 func show_log_popup() -> void:
 	render_log()
@@ -3804,9 +4320,9 @@ func show_log_popup() -> void:
 	settings_panel.visible = false
 	catalogue_panel.visible = false
 	inventory_popup.visible = false
-	town_popup.visible = false
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
+	update_top_right_controls()
 
 func show_inventory_popup() -> void:
 	position_inventory_popup()
@@ -3817,9 +4333,9 @@ func show_inventory_popup() -> void:
 	settings_panel.visible = false
 	catalogue_panel.visible = false
 	log_popup.visible = false
-	town_popup.visible = false
 	in_game_menu_popup.visible = false
 	save_prompt_popup.visible = false
+	update_top_right_controls()
 
 func position_inventory_popup() -> void:
 	if mode == "combat":
@@ -3861,6 +4377,15 @@ func show_map_overlay() -> void:
 	map_overlay_view.set_world_state(player_pos, discovered, explored, current_location.id)
 	map_overlay.visible = true
 	map_overlay.move_to_front()
+
+func toggle_compact_map() -> void:
+	if not can_show_compact_map_button():
+		return
+	compact_map_panel.visible = not compact_map_panel.visible
+	if compact_map_panel.visible:
+		compact_map_view.set_world_state(player_pos, discovered, explored, current_location.id)
+		compact_map_panel.move_to_front()
+		top_right_controls.move_to_front()
 
 func render_catalogue() -> void:
 	clear_children(catalogue_panel)
@@ -3909,14 +4434,11 @@ func render_catalogue() -> void:
 	catalogue_detail_panel.add_child(catalogue_detail_box)
 
 	var close := Button.new()
-	close.text = "X"
-	close.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	close.offset_left = -56
-	close.offset_top = 8
-	close.offset_right = -8
-	close.offset_bottom = 56
-	close.add_theme_font_size_override("font_size", 24)
-	close.pressed.connect(func() -> void: catalogue_panel.visible = false)
+	style_overlay_close_button(close)
+	close.pressed.connect(func() -> void:
+		catalogue_panel.visible = false
+		update_top_right_controls()
+	)
 	content.add_child(close)
 
 func make_catalogue_item_button(item_id: String, item: Dictionary) -> Button:
@@ -4017,13 +4539,11 @@ func show_catalogue_detail(item_id: String, pin_detail: bool) -> void:
 		row.add_theme_constant_override("h_separation", 8)
 		row.add_theme_constant_override("v_separation", 8)
 		for card_id in item.cards:
-			var card: Dictionary = CARDS[str(card_id)]
+			var card: Dictionary = cards[str(card_id)]
 			var card_view = preload("res://scripts/CardView.gd").new()
 			card_view.setup(card)
 			card_view.draggable = false
 			card_view.scale = Vector2(0.65, 0.65)
-			card_view.hover_card.connect(show_card_preview)
-			card_view.unhover_card.connect(hide_card_preview)
 			row.add_child(card_view)
 		catalogue_detail_box.add_child(row)
 	catalogue_detail_panel.visible = true
@@ -4048,7 +4568,7 @@ func catalogue_entry_cards_visible(item: Dictionary) -> bool:
 func catalogue_item_text(item: Dictionary) -> String:
 	var lines: Array[String] = ["Type: %s" % item.type, "Cards:"]
 	for card_id in item.cards:
-		var card: Dictionary = CARDS[card_id]
+		var card: Dictionary = cards[card_id]
 		lines.append("- %s" % card_rules_text(card))
 	return join_with_separator(lines, "\n")
 
@@ -4090,7 +4610,7 @@ func card_rules_text(card: Dictionary) -> String:
 	return "Name: %s, Cores(%s), Energy(%s), Block %s, MagicBlock %s" % [card.name, card.cores, card.energy, card.block, card.magic_block]
 
 func get_location(location_id: String) -> Dictionary:
-	for location in LOCATIONS:
+	for location in locations:
 		if location.id == location_id:
 			return location
 	return {}

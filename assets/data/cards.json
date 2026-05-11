@@ -1,0 +1,182 @@
+{
+	"basic_dash": {
+		"block": 2.0,
+		"cores": 0.0,
+		"energy": 1.0,
+		"magic_block": 1.0,
+		"move": 2.0,
+		"name": "Dash",
+		"text": "Move 2.",
+		"type": "move"
+	},
+	"body_block": {
+		"block": 6.0,
+		"cores": 0.0,
+		"energy": 0.0,
+		"magic_block": 2.0,
+		"name": "Body Block",
+		"text": "Lose 2 life.",
+		"type": "skill"
+	},
+	"dash": {
+		"block": 1.0,
+		"cores": 0.0,
+		"energy": 1.0,
+		"magic_block": 0.0,
+		"move": 2.0,
+		"name": "Dash",
+		"text": "Move 2 hexes.",
+		"type": "move"
+	},
+	"guard": {
+		"block": 5.0,
+		"cores": 0.0,
+		"energy": 0.0,
+		"magic_block": 2.0,
+		"name": "Guard",
+		"text": "Strong block card.",
+		"type": "skill"
+	},
+	"headbut": {
+		"block": 3.0,
+		"cores": 0.0,
+		"damage": 4.0,
+		"damage_type": "normal",
+		"energy": 0.0,
+		"magic_block": 1.0,
+		"name": "Headbut",
+		"range": 1.0,
+		"text": "Only deals damage to characters with an Empty head piece slot.",
+		"type": "attack"
+	},
+	"jab": {
+		"block": 2.0,
+		"cores": 0.0,
+		"damage": 3.0,
+		"damage_type": "normal",
+		"energy": 0.0,
+		"magic_block": 0.0,
+		"name": "Jab",
+		"range": 1.0,
+		"text": "NormalAttack 3 on range 1.",
+		"type": "attack"
+	},
+	"leg_tap": {
+		"block": 2.0,
+		"cores": 0.0,
+		"damage": 4.0,
+		"damage_type": "normal",
+		"energy": 1.0,
+		"magic_block": 0.0,
+		"name": "Leg Tap",
+		"range": 2.0,
+		"text": "NormalAttack 4 on range 2.",
+		"type": "attack"
+	},
+	"new_card": {
+		"block": 2.0,
+		"cores": 0.0,
+		"damage": 0.0,
+		"damage_type": "normal",
+		"energy": 0.0,
+		"magic_block": 2.0,
+		"name": "Core Surge",
+		"range": 0.0,
+		"text": "Gain 1 Core",
+		"type": "skill"
+	},
+	"quick_stab": {
+		"block": 5.0,
+		"cores": 1.0,
+		"damage": 8.0,
+		"damage_type": "normal",
+		"energy": 0.0,
+		"magic_block": 0.0,
+		"name": "Quick Stab",
+		"range": 2.0,
+		"text": "NormalAttack 8 on range 2.",
+		"type": "attack"
+	},
+	"shoulder_throw": {
+		"block": 2.0,
+		"cores": 0.0,
+		"damage": 6.0,
+		"damage_type": "normal",
+		"energy": 1.0,
+		"magic_block": 0.0,
+		"name": "Shoulder Throw",
+		"range": 2.0,
+		"text": "NormalAttack 6 on range 2.",
+		"type": "attack"
+	},
+	"shove": {
+		"block": 3.0,
+		"cores": 0.0,
+		"damage": 3.0,
+		"damage_type": "normal",
+		"energy": 0.0,
+		"magic_block": 0.0,
+		"name": "Shove",
+		"range": 1.0,
+		"text": "NormalAttack 3 on range 1.",
+		"type": "attack"
+	},
+	"spark": {
+		"block": 1.0,
+		"cores": 1.0,
+		"damage": 8.0,
+		"damage_type": "magic",
+		"energy": 1.0,
+		"magic_block": 3.0,
+		"name": "Core Spark",
+		"range": 2.0,
+		"text": "MagicAttack 8 on range 2.",
+		"type": "attack"
+	},
+	"step": {
+		"block": 1.0,
+		"cores": 0.0,
+		"energy": 0.0,
+		"magic_block": 0.0,
+		"move": 1.0,
+		"name": "Step",
+		"text": "Move 1 hex.",
+		"type": "move"
+	},
+	"strike": {
+		"block": 2.0,
+		"cores": 0.0,
+		"damage": 5.0,
+		"damage_type": "normal",
+		"energy": 1.0,
+		"magic_block": 1.0,
+		"name": "Strike",
+		"range": 1.0,
+		"text": "NormalAttack 5 on range 1.",
+		"type": "attack"
+	},
+	"thrust": {
+		"block": 3.0,
+		"cores": 0.0,
+		"damage": 6.0,
+		"damage_type": "normal",
+		"energy": 1.0,
+		"magic_block": 1.0,
+		"name": "Thrust",
+		"range": 2.0,
+		"text": "NormalAttack 6 on range 2.",
+		"type": "attack"
+	},
+	"wrap": {
+		"block": 1.0,
+		"cores": 0.0,
+		"damage": 5.0,
+		"damage_type": "normal",
+		"energy": 2.0,
+		"magic_block": 1.0,
+		"name": "Wrap",
+		"range": 1.0,
+		"text": "On hit: The hit character becomes rooted.",
+		"type": "attack"
+	}
+}

@@ -10,8 +10,10 @@ var dragging := false
 var drag_start := Vector2.ZERO
 var home_position := Vector2.ZERO
 var hovered := false
+var resting_scale := Vector2.ONE
 
-const CARD_SIZE := Vector2(136, 184)
+const CARD_SIZE := Vector2(112, 154)
+const HOVER_SCALE := 1.18
 const ICONS := {
 	"move": "res://assets/icons/foot.svg",
 	"energy": "res://assets/icons/energy.svg",
@@ -20,12 +22,13 @@ const ICONS := {
 	"magic_block": "res://assets/icons/magic_shield.svg",
 	"attack": "res://assets/icons/sword.svg",
 	"range": "res://assets/icons/range.svg",
-	"magic_attack": "res://assets/icons/magic_blast.svg"
+	"magic_attack": "res://assets/icons/magic_attack.png"
 }
 
 func setup(card_data: Dictionary) -> void:
 	card_instance = card_data
 	custom_minimum_size = CARD_SIZE
+	pivot_offset = CARD_SIZE * 0.5
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clear_children(self)
 
@@ -45,24 +48,24 @@ func setup(card_data: Dictionary) -> void:
 	add_source_badge(face)
 
 func add_header(face: Control) -> void:
-	face.add_child(make_stat_badge("core", str(card_instance.get("cores", 0)), Vector2(10, 10), Vector2(38, 38), 21, false, true))
-	face.add_child(make_stat_badge("energy", str(card_instance.get("energy", 0)), Vector2(11, 44), Vector2(24, 24), 14, true, false))
+	face.add_child(make_stat_badge("core", str(card_instance.get("cores", 0)), Vector2(8, 8), Vector2(32, 32), 18, false, true))
+	face.add_child(make_stat_badge("energy", str(card_instance.get("energy", 0)), Vector2(9, 38), Vector2(22, 22), 12, true, false))
 
 	var title := Label.new()
 	title.text = str(card_instance.get("name", "Card"))
-	title.position = Vector2(52, 12)
-	title.size = Vector2(52, 30)
+	title.position = Vector2(42, 9)
+	title.size = Vector2(44, 29)
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 11)
+	title.add_theme_font_size_override("font_size", 10 if title.text.length() <= 12 else 8)
 	title.add_theme_color_override("font_color", Color(0.12, 0.09, 0.06, 1.0))
 	face.add_child(title)
 
 func add_art_panel(face: Control) -> void:
 	var art := PanelContainer.new()
-	art.position = Vector2(14, 62)
-	art.size = Vector2(88, 72)
+	art.position = Vector2(12, 54)
+	art.size = Vector2(72, 52)
 	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art_style := StyleBoxFlat.new()
 	art_style.bg_color = Color(0.34, 0.38, 0.34, 0.46)
@@ -81,32 +84,33 @@ func add_art_panel(face: Control) -> void:
 func add_effect_text(face: Control) -> void:
 	var effect := Label.new()
 	effect.text = effect_text()
-	effect.position = Vector2(16, 139)
-	effect.size = Vector2(104, 22)
+	effect.position = Vector2(12, 110)
+	effect.size = Vector2(88, 25)
 	effect.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	effect.clip_text = true
 	effect.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	effect.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	effect.add_theme_font_size_override("font_size", 8)
+	effect.add_theme_font_size_override("font_size", 7 if effect.text.length() <= 46 else 6)
 	effect.add_theme_color_override("font_color", Color(0.16, 0.12, 0.08, 1.0))
 	face.add_child(effect)
 
 func add_side_blocks(face: Control) -> void:
 	if int(card_instance.get("block", 0)) > 0:
-		face.add_child(make_stat_badge("block", str(card_instance.block), Vector2(104, 72), Vector2(32, 26), 14, false, false, "left"))
+		face.add_child(make_stat_badge("block", str(card_instance.block), Vector2(88, 64), Vector2(24, 22), 12, false, false, "left"))
 	if int(card_instance.get("magic_block", 0)) > 0:
-		face.add_child(make_stat_badge("magic_block", str(card_instance.magic_block), Vector2(104, 104), Vector2(32, 26), 14, false, false, "left"))
+		face.add_child(make_stat_badge("magic_block", str(card_instance.magic_block), Vector2(88, 91), Vector2(24, 22), 12, false, false, "left"))
 
 func add_bottom_stats(face: Control) -> void:
 	if card_instance.has("damage"):
 		var attack_icon := "magic_attack" if str(card_instance.get("damage_type", "normal")) == "magic" else "attack"
-		face.add_child(make_stat_badge(attack_icon, str(card_instance.damage), Vector2(14, 158), Vector2(24, 24), 14, true, false))
-		face.add_child(make_stat_badge("range", str(card_instance.range), Vector2(42, 158), Vector2(24, 24), 13, true, false))
+		face.add_child(make_stat_badge(attack_icon, str(card_instance.damage), Vector2(12, 131), Vector2(21, 21), 12, true, false))
+		face.add_child(make_stat_badge("range", str(card_instance.range), Vector2(36, 131), Vector2(21, 21), 11, true, false))
 	if card_instance.has("move"):
-		face.add_child(make_stat_badge("move", str(card_instance.move), Vector2(98, 158), Vector2(24, 24), 14, true, false))
+		face.add_child(make_stat_badge("move", str(card_instance.move), Vector2(80, 131), Vector2(21, 21), 12, true, false))
 
 func add_source_badge(face: Control) -> void:
 	var source_icon := str(card_instance.get("source_icon", fallback_source_icon()))
-	face.add_child(make_stat_badge(source_icon, "", Vector2(106, 10), Vector2(24, 24), 10, true, false, "", 0.88))
+	face.add_child(make_stat_badge(source_icon, "", Vector2(88, 8), Vector2(20, 20), 10, true, false, "", 0.88))
 
 func effect_text() -> String:
 	var text := str(card_instance.get("text", ""))
@@ -215,10 +219,15 @@ func _gui_input(event: InputEvent) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_MOUSE_ENTER:
 		hovered = true
+		resting_scale = scale
+		scale = resting_scale * HOVER_SCALE
+		z_index = 20
 		apply_hover_style()
 		hover_card.emit(card_instance)
 	if what == NOTIFICATION_MOUSE_EXIT:
 		hovered = false
+		scale = resting_scale
+		z_index = 0
 		apply_hover_style()
 		unhover_card.emit()
 

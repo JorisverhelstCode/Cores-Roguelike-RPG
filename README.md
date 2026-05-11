@@ -8,6 +8,7 @@ The game starts on an overworld map with fog of war. The player begins in Glory,
 
 - Overworld movement with keyboard and click-to-travel controls
 - Fog of war and location discovery
+- Belland map-derived town roster with shared shop access
 - Town and event popup screens
 - Inventory screen with equipment, stats, loose items, and deck view
 - Equipment-driven deck construction
@@ -34,6 +35,16 @@ From command line:
 ```powershell
 godot --path .
 ```
+
+## Development Tools
+
+Aftermath includes a development-only editor for map locations, routes, and cards:
+
+```powershell
+godot --path . scenes/AftermathDevEditor.tscn
+```
+
+The editor saves JSON data to `assets/data/locations.json`, `assets/data/routes.json`, and `assets/data/cards.json`. The main game loads those files on startup when they exist, and falls back to the built-in prototype data otherwise.
 
 ## Exporting Builds
 
